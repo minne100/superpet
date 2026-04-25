@@ -83,8 +83,11 @@ export class GameLogger {
   }
 
   recordTalentDealt (assignments) {
-    // assignments: [{ playerId, pet, talentCards: [{cardId, name, effect, used}] }]
     this.record({ type: 'TALENT_DEALT', assignments })
+  }
+
+  recordReshuffle (deckType, seed, issuedBy) {
+    this.record({ type: 'RESHUFFLE', deckType, seed, issuedBy })
   }
 
   recordStartPositions (order, posMap, engine) {
@@ -342,6 +345,13 @@ export class GameLogger {
           } else {
             lines.push(`    📋 ${label2} 当前状态: 金币${ev.after.gold} 攻${ev.after.attack} 防${ev.after.defense} 招式卡×${ev.after.moveCards} 内功卡×${ev.after.neigongCards} (无变化)`)
           }
+          break
+        }
+
+        case 'RESHUFFLE': {
+          const deckNames = { neigong: '内功', opportunity: '机遇', event: '事件' }
+          const name = deckNames[ev.deckType] || ev.deckType
+          lines.push(`    🔄 ${name}牌堆已抽空 → 弃牌重洗（种子:${ev.seed}，由 ${playerLabel(ev.issuedBy)} 发出）`)
           break
         }
 

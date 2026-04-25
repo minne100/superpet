@@ -32,6 +32,7 @@ export const MSG = {
   // ===== 开局阶段 =====
   HOST_DECLARED:     'HOST_DECLARED',     // 发起者宣布（广播）
   DECK_SEEDS:        'DECK_SEEDS',        // 发起者广播洗牌种子（广播）
+  RESHUFFLE:         'RESHUFFLE',         // 某牌堆触发重洗（含种子，由发起者/AI托管广播）
   ORDER_DICE_RESULT: 'ORDER_DICE_RESULT', // 排序投骰结果（广播）
   ORDER_DECIDED:     'ORDER_DECIDED',     // 跑圈顺序确定（广播）
   PET_ASSIGNED:      'PET_ASSIGNED',      // 宠物分配结果（广播）

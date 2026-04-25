@@ -277,6 +277,18 @@ export class Simulator {
           junctionDetails
         )
 
+        // 广播重洗牌事件（由发起者/AI托管负责广播种子，保证各节点一致）
+        for (const ev of mv.cellEvents || []) {
+          if (ev.type === 'reshuffle') {
+            bus.broadcast(MSG.RESHUFFLE, {
+              deckType: ev.deckType,
+              seed: ev.seed,
+              issuedBy: playerIds[0]  // 模拟器中发起者始终是第一位玩家
+            })
+            if (logger) logger.recordReshuffle(ev.deckType, ev.seed, playerIds[0])
+          }
+        }
+
         // 记录格子效果（等 TURN_END 后拿到最终状态）
         await turnEndPromise
 
@@ -343,6 +355,11 @@ export class Simulator {
         case 'draw_move':
           descs.push({ desc: `抽到招式卡 [${ev.cardId}]` })
           break
+        case 'reshuffle': {
+          const deckNames = { neigong: '内功', opportunity: '机遇', event: '事件' }
+          descs.push({ desc: `【${deckNames[ev.deckType] || ev.deckType}牌堆已抽空，弃牌重洗！种子:${ev.seed}】` })
+          break
+        }
         case 'draw_neigong':
           descs.push({ desc: `抽到内功卡 [${ev.cardId}]` })
           break

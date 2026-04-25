@@ -19,7 +19,7 @@ import { TurnManager } from './turn-manager.js'
 import { EffectManager } from './effect-manager.js'
 import { CardInterpreter } from './card-interpreter.js'
 import { CombatSystem } from './combat-system.js'
-import { createDeck } from './load-cards.js'
+import { createDeck, shuffle } from './load-cards.js'
 
 class GameEngine {
   /**
@@ -245,9 +245,64 @@ class GameEngine {
   }
 
   /**
+   * @method reshuffleDeck
+   * @param {string} deckType — 'neigong' | 'opportunity' | 'event'
+   * @param {number} [seed] — 洗牌种子（由发起者/AI托管提供，保证各节点一致）
+   * @returns {{ reshuffled: boolean, count: number, seed: number }}
+   * @description 规则书 §3.1（v2.0）：机遇、事件、内功卡用完后，
+   * 将弃牌堆重新洗牌，循环使用。招式卡不循环（抽空则触发终极比武）。
+   *
+   * 洗牌种子来源：
+   * - 在线版：由发起者（或掉线时的AI托管）通过网络广播 RESHUFFLE_SEED 消息，
+   *   各节点收到后以相同种子重洗，保证牌序一致。
+   * - 模拟器：由引擎内部 PRNG 自动生成（Coordinator 通过 GameBus 广播记录）。
+   */
+  reshuffleDeck (deckType, seed) {
+    const discard = this.discardPiles[deckType]
+    if (!discard || discard.length === 0) {
+      return { reshuffled: false, count: 0, seed: seed ?? 0 }
+    }
+
+    const usedSeed = seed ?? this.#nextSeed()
+    this.decks[deckType] = shuffle([...discard], usedSeed)
+    this.discardPiles[deckType] = []
+
+    return { reshuffled: true, count: this.decks[deckType].length, seed: usedSeed }
+  }
+
+  /**
+   * @method #drawCard
+   * @private
+   * @param {string} deckType — 牌堆类型
+   * @returns {{ card: Object|null, reshuffled: boolean, reshuffleSeed: number }}
+   * @description 从牌堆抽1张卡。若牌堆为空且弃牌堆有牌，先重洗再抽。
+   * 招式卡（move）不重洗，抽空返回 null（触发终极比武）。
+   */
+  #drawCard (deckType) {
+    // 招式卡：不循环，抽空返回 null
+    if (deckType === 'move') {
+      const card = this.decks.move.pop() ?? null
+      return { card, reshuffled: false, reshuffleSeed: 0 }
+    }
+
+    // 其他牌堆：空时从弃牌堆重洗
+    if (this.decks[deckType].length === 0) {
+      const result = this.reshuffleDeck(deckType)
+      if (!result.reshuffled) {
+        // 弃牌堆也是空的，暂时无牌可抽
+        return { card: null, reshuffled: false, reshuffleSeed: 0 }
+      }
+      const card = this.decks[deckType].pop()
+      return { card: card ?? null, reshuffled: true, reshuffleSeed: result.seed }
+    }
+
+    const card = this.decks[deckType].pop()
+    return { card: card ?? null, reshuffled: false, reshuffleSeed: 0 }
+  }
+
+  /**
    * @method #dealInitialCards
    * @private
-   * @description 每人发1张招式卡、2张内功卡
    */
   #dealInitialCards () {
     // 无初始手牌。攻防默认值=1由Player构造设定。
@@ -463,8 +518,8 @@ class GameEngine {
       }
 
       case 'move': {
-        // 招式格：抽1张招式卡
-        const card = this.decks.move.pop()
+        // 招式格：抽1张招式卡（招式卡不循环，抽空触发终极比武）
+        const { card } = this.#drawCard('move')
         if (card) {
           player.addCard('move', card)
           events.push({ type: 'draw_move', cardId: card.cardId })
@@ -473,8 +528,11 @@ class GameEngine {
       }
 
       case 'neigong': {
-        // 内功格：抽1张内功卡
-        const card = this.decks.neigong.pop()
+        // 内功格：抽1张内功卡（v2.0：用完后弃牌堆重洗循环使用）
+        const { card, reshuffled, reshuffleSeed } = this.#drawCard('neigong')
+        if (reshuffled) {
+          events.push({ type: 'reshuffle', deckType: 'neigong', seed: reshuffleSeed })
+        }
         if (card) {
           player.addCard('neigong', card)
           events.push({ type: 'draw_neigong', cardId: card.cardId })
@@ -483,30 +541,36 @@ class GameEngine {
       }
 
       case 'opportunity': {
-        // 机遇格：抽1张机遇卡并立即执行（规则书：机遇卡用完即弃）
-        const card = this.decks.opportunity.pop()
+        // 机遇格：抽1张机遇卡并立即执行（v2.0：用完后弃牌堆重洗循环使用）
+        const { card, reshuffled, reshuffleSeed } = this.#drawCard('opportunity')
+        if (reshuffled) {
+          events.push({ type: 'reshuffle', deckType: 'opportunity', seed: reshuffleSeed })
+        }
         if (card) {
-          player.addCard('opportunity', card)
           const result = this.cardInterpreter.interpret(card, {
             triggerPlayerId: player.id,
             engine: this
           })
-          player.removeCard('opportunity', card.cardId)
+          // 执行后入弃牌堆
+          this.discardPiles.opportunity.push(card)
           events.push({ type: 'opportunity_executed', cardId: card.cardId, result })
         }
         break
       }
 
       case 'event': {
-        // 事件格：抽1张事件卡并立即执行（规则书：事件卡用完即弃）
-        const card = this.decks.event.pop()
+        // 事件格：抽1张事件卡并立即执行（v2.0：用完后弃牌堆重洗循环使用）
+        const { card, reshuffled, reshuffleSeed } = this.#drawCard('event')
+        if (reshuffled) {
+          events.push({ type: 'reshuffle', deckType: 'event', seed: reshuffleSeed })
+        }
         if (card) {
-          player.addCard('event', card)
           const result = this.cardInterpreter.interpret(card, {
             triggerPlayerId: player.id,
             engine: this
           })
-          player.removeCard('event', card.cardId)
+          // 执行后入弃牌堆
+          this.discardPiles.event.push(card)
           events.push({ type: 'event_executed', cardId: card.cardId, result })
         }
         break
