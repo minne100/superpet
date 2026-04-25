@@ -1,0 +1,15 @@
+# Windows Zone.Identifier files
+*:Zone.Identifier
+
+# Git directory (Git ignores this by default)
+.git/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -392,7 +392,7 @@ class GameEngine {
 
 ---
 
-## 5. Rust 信令服务器设计
+## 5. PHP 信令服务器设计
 
 ### 5.1 功能范围（最小化）
 
@@ -441,10 +441,10 @@ ICE 交换（通过 WebSocket）：
 | 组件 | 选择 | 理由 |
 |---|---|---|
 | HTTP | 静态HTML + js调用API显示统计数据 | 可部署在任何地方 |
-| API 框架 | tokio-tungstenite | 成熟可靠 |
-| WebSocket | tokio-tungstenite | 统一技术栈 |
+| API 框架 | infinityfree PHP | 永久免费 |
+| WebSocket | PHP workerman | 永久免费 |
 | 房间存储 | HashMap in-memory | 无状态，崩溃后房间丢失可接受 |
-| 部署 | 单二进制 | 编译产物仅数MB |
+| 部署 | 直接文件复制 | 无需编译 |
 
 ---
 
