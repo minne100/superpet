@@ -132,21 +132,52 @@ class CardInterpreter {
 
     switch (effectiveAction) {
       // ---- 玩家输入类（需要等待） ----
-      case 'roll_dice':
+      case 'roll_dice': {
+        // 检查是否有模拟骰子结果
+        const playerId = loopPid || step.player || this.context.triggerPlayerId
+        if (this.context.diceResults && this.context.diceResults[playerId]) {
+          // 使用模拟结果
+          const diceValue = this.context.diceResults[playerId]
+          if (step.store_as) {
+            this.context[step.store_as] = diceValue
+          }
+          return this.#completeResult()
+        }
         return this.#makeWait('roll_dice', step, loopPid)
+      }
       case 'wait_dice':
         return this.#makeWait('wait_dice', step, loopPid)
       case 'reveal_and_pick':
+        // 检查是否有模拟选择结果
+        if (this.context.choices && this.context.choices.pick_card) {
+          return this.#completeResult()
+        }
         return this.#makeWait('pick_card', step, loopPid)
       case 'wait_pick':
         return this.#makeWait('wait_pick', step, loopPid)
       case 'pick_card':
+        // 检查是否有模拟选择结果
+        if (this.context.choices && this.context.choices.pick_card) {
+          return this.#completeResult()
+        }
         return this.#makeWait('pick_card', step, loopPid)
       case 'pick_and_return':
+        // 检查是否有模拟选择结果
+        if (this.context.choices && this.context.choices.pick_and_return) {
+          return this.#completeResult()
+        }
         return this.#makeWait('pick_and_return', step, loopPid)
       case 'player_choice':
+        // 检查是否有模拟选择结果
+        if (this.context.choices && this.context.choices.choose_player) {
+          return this.#completeResult()
+        }
         return this.#makeWait('choose_player', step, loopPid)
       case 'choose_discard':
+        // 检查是否有模拟选择结果
+        if (this.context.choices && this.context.choices.discard) {
+          return this.#completeResult()
+        }
         return this.#makeWait('discard', step, loopPid)
 
       // ---- 纯内部运算类（直接执行） ----
@@ -243,7 +274,14 @@ class CardInterpreter {
 
     switch (action) {
       case 'add_gold': {
-        const amount = step.value || 0
+        let amount = step.value || 0
+        // 检查是否是变量
+        if (typeof amount === 'string' && amount.startsWith('$')) {
+          const varName = amount.slice(1)
+          if (this.context[varName] !== undefined) {
+            amount = this.context[varName]
+          }
+        }
         player.addGold(amount)
         effects.push({ type: 'add_gold', desc: `${player.name || pid} 获得 ${amount} 金币` })
         break

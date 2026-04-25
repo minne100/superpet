@@ -138,11 +138,20 @@ class TestGameEnvironment {
       'D': 5
     }
     
+    // 为需要玩家选择的卡牌提供模拟结果
+    const choices = {
+      pick_card: true,           // 模拟选择卡牌
+      pick_and_return: true,     // 模拟选择并返回卡牌
+      choose_player: 'B',        // 模拟选择玩家B
+      discard: true              // 模拟选择丢弃
+    }
+    
     const context = {
       triggerPlayerId,
       playerOrder: testConfig.players,
       engine: this,
       diceResults,
+      choices,
       // 为需要计算的卡牌提供模拟结果
       min_player: 'C', // 最小骰子值的玩家
       winner: 'D',     // 最大骰子值的玩家
@@ -434,3 +443,6 @@ describe('多用户交互测试', () => {
     // assert.ok(playerB.gold > initialGoldB, '玩家B金币应增加')
   })
 })
+
+// 导出TestGameEnvironment和MockPlayer供其他测试文件使用
+export { TestGameEnvironment, MockPlayer }
