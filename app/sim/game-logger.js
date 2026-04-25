@@ -63,6 +63,14 @@ export class GameLogger {
     })
   }
 
+  recordHostDeclared (hostId) {
+    this.record({ type: 'HOST_DECLARED', hostId })
+  }
+
+  recordDeckSeeds (hostId, seeds) {
+    this.record({ type: 'DECK_SEEDS', hostId, seeds })
+  }
+
   recordOrderDice (rolls, order) {
     this.record({ type: 'ORDER_DICE', rolls, order })
   }
@@ -72,6 +80,11 @@ export class GameLogger {
       type: 'PET_ASSIGNMENT',
       assignments: order.map((id, i) => ({ playerId: id, pet: pets[i] }))
     })
+  }
+
+  recordTalentDealt (assignments) {
+    // assignments: [{ playerId, pet, talentCards: [{cardId, name, effect, used}] }]
+    this.record({ type: 'TALENT_DEALT', assignments })
   }
 
   recordStartPositions (order, posMap, engine) {
@@ -208,6 +221,24 @@ export class GameLogger {
     for (const ev of this.events) {
       switch (ev.type) {
 
+        case 'HOST_DECLARED': {
+          lines.push('')
+          lines.push('【开局 — 发起者】')
+          lines.push(`  👑 玩家${ev.hostId} 为本局发起者（房主），负责确定洗牌种子`)
+          break
+        }
+
+        case 'DECK_SEEDS': {
+          lines.push('')
+          lines.push('【开局 — 洗牌种子（由发起者生成并同步给所有玩家）】')
+          lines.push(`  📦 招式卡    种子: ${ev.seeds.move}`)
+          lines.push(`  📦 内功卡    种子: ${ev.seeds.neigong}`)
+          lines.push(`  📦 机遇卡    种子: ${ev.seeds.opportunity}`)
+          lines.push(`  📦 事件卡    种子: ${ev.seeds.event}`)
+          lines.push(`  → 所有玩家使用相同种子洗牌，牌池顺序完全一致`)
+          break
+        }
+
         case 'ORDER_DICE': {
           lines.push('')
           lines.push('【开局 — 投骰决定跑圈顺序】')
@@ -235,6 +266,17 @@ export class GameLogger {
             // 更新名称映射，后续 TURN_START 等事件使用宠物名
             petMap[a.playerId] = a.pet
             lines.push(`  玩家${a.playerId} 选择宠物：${a.pet}`)
+          }
+          break
+        }
+
+        case 'TALENT_DEALT': {
+          lines.push('')
+          lines.push('【开局 — 天赋卡发放（必须项，每局只能使用一次）】')
+          for (const a of ev.assignments) {
+            const label = playerLabel(a.playerId)
+            const cardNames = a.talentCards.map(c => c.name).join(' + ')
+            lines.push(`  ${label}(${a.playerId}) [${a.pet}]  天赋：${cardNames}`)
           }
           break
         }

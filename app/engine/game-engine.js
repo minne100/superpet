@@ -173,18 +173,59 @@ class GameEngine {
   }
 
   /**
+   * 天赋卡定义（规则书 §3.3.6）
+   * 每只宠物固定2张天赋卡，每局只能用一次，作用与同名比武卡相同。
+   */
+  static TALENT_CARDS = {
+    '猫':  [
+      { cardId: 'talent_cat_1', name: '单人位置卡', effect: 'position_single' },
+      { cardId: 'talent_cat_2', name: '闪避卡',     effect: 'dodge' }
+    ],
+    '狗':  [
+      { cardId: 'talent_dog_1', name: '单人位置卡', effect: 'position_single' },
+      { cardId: 'talent_dog_2', name: '反弹卡',     effect: 'reflect' }
+    ],
+    '兔子': [
+      { cardId: 'talent_rabbit_1', name: '腾挪卡', effect: 'dash' },
+      { cardId: 'talent_rabbit_2', name: '闪避卡', effect: 'dodge' }
+    ],
+    '鹦鹉': [
+      { cardId: 'talent_parrot_1', name: '腾挪卡', effect: 'dash' },
+      { cardId: 'talent_parrot_2', name: '反弹卡', effect: 'reflect' }
+    ]
+  }
+
+  /**
    * @method assignPets
-   * @description 规则书 §3.1：按跑圈顺序依次选择宠物。
+   * @description 规则书 §3.1：按跑圈顺序依次选择宠物，并立即发放2张天赋卡。
    * 模拟器中按顺序自动分配，在线版由玩家点击选择。
    * @param {string[]} petOrder — 按跑圈顺序对应的宠物名列表
    *   e.g. ['猫', '狗', '兔子', '鹦鹉']
+   * @returns {Object[]} 每位玩家的天赋卡发放记录
+   *   [{ playerId, pet, talentCards: [{cardId, name, effect}] }]
    */
   assignPets (petOrder) {
     const order = this.turnManager.order
+    const assignments = []
+
     order.forEach((playerId, i) => {
       const player = this.getPlayer(playerId)
-      if (player) player.name = petOrder[i] || playerId
+      if (!player) return
+
+      const pet = petOrder[i] || playerId
+      player.name = pet
+
+      // 发放天赋卡（必须项，每局游戏均需发放）
+      const talents = (GameEngine.TALENT_CARDS[pet] || []).map(t => ({
+        ...t,
+        used: false  // 标记是否已使用，每局只能用一次
+      }))
+      player.talentCards = talents
+
+      assignments.push({ playerId, pet, talentCards: talents })
     })
+
+    return assignments
   }
 
   /**

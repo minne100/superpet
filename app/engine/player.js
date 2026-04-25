@@ -58,20 +58,20 @@ class Player {
     this.combatDefBuff = 0
 
     // === 手牌 ===
-    /**
-     * @type {{move:Object[], neigong:Object[]}}
-     * @description 玩家手牌，按类型分组
-     */
     this.hand = {
-      /** 招式卡列表 */
-      move: [],
-      /** 内功卡列表 */
-      neigong: [],
-      /** 机遇卡列表（抽到但暂未执行的） */
-      opportunity: [],
-      /** 事件卡列表（抽到但暂未执行的） */
-      event: []
+      move: [],        // 招式卡
+      neigong: [],     // 内功卡
+      opportunity: [], // 机遇卡（抽到但暂未执行的）
+      event: [],       // 事件卡
+      battle: []       // 比武卡（比武格触发时抽取/购买）
     }
+
+    /**
+     * @type {Object[]} 天赋卡（开局选宠物时发放，每局只能用一次）
+     * 规则书 §3.3.6：每只宠物固定2张天赋卡，作用与同名比武卡相同。
+     * 结构：[{ cardId, name, used: false }, ...]
+     */
+    this.talentCards = []
 
     // === 状态标记 ===
     /** @type {boolean} 是否存活（杀戮局可能被淘汰） */
@@ -224,8 +224,10 @@ class Player {
       combatDefBuff: this.combatDefBuff,
       hand: {
         move: [...this.hand.move],
-        neigong: [...this.hand.neigong]
+        neigong: [...this.hand.neigong],
+        battle: [...this.hand.battle]
       },
+      talentCards: this.talentCards.map(c => ({ ...c })),
       alive: this.alive,
       skipNextTurn: this.skipNextTurn
     }

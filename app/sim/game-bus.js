@@ -30,9 +30,12 @@ export const MSG = {
   AGENT_READY:      'AGENT_READY',       // Agent 已就绪，等待 GAME_START
   AGENT_TURN_READY: 'AGENT_TURN_READY', // Agent 已注册 YOUR_TURN waiter，可以发 YOUR_TURN
   // ===== 开局阶段 =====
+  HOST_DECLARED:     'HOST_DECLARED',     // 发起者宣布（广播）
+  DECK_SEEDS:        'DECK_SEEDS',        // 发起者广播洗牌种子（广播）
   ORDER_DICE_RESULT: 'ORDER_DICE_RESULT', // 排序投骰结果（广播）
   ORDER_DECIDED:     'ORDER_DECIDED',     // 跑圈顺序确定（广播）
   PET_ASSIGNED:      'PET_ASSIGNED',      // 宠物分配结果（广播）
+  TALENT_DEALT:      'TALENT_DEALT',      // 天赋卡发放（广播）
   START_POS_ASSIGNED:'START_POS_ASSIGNED',// 起点分配结果（广播）
   GAME_START:        'GAME_START',        // 游戏开始，携带初始状态
   GAME_OVER:        'GAME_OVER',         // 游戏结束，携带最终结果

@@ -172,23 +172,41 @@ export class Simulator {
 
     // ===== 开局阶段 =====
 
-    // Step 1: 全员投骰决定跑圈顺序（规则书 §3.1）
+    // Step 0: 发起者宣布（规则书 §4.1：房主创建房间，负责确定洗牌种子）
+    // 模拟器中取第一个玩家为发起者，在线版为房主
+    const hostId = playerIds[0]
+    bus.broadcast(MSG.HOST_DECLARED, { hostId })
+    if (logger) logger.recordHostDeclared(hostId)
+
+    // Step 1: 发起者生成并广播洗牌种子（确保所有节点牌池顺序一致）
+    // 模拟器中种子已由 GameEngine 内部 PRNG 生成，这里把已用的种子值广播出去供记录
+    // 在线版：hostId 玩家调用 crypto.randomInt() 生成种子，广播给所有人，各节点再执行洗牌
+    const deckSeeds = {
+      move:        engine.seed,       // 展示用，实际洗牌已在 engine.init() 完成
+      neigong:     engine.seed + 1,
+      opportunity: engine.seed + 2,
+      event:       engine.seed + 3
+    }
+    bus.broadcast(MSG.DECK_SEEDS, { hostId, seeds: deckSeeds })
+    if (logger) logger.recordDeckSeeds(hostId, deckSeeds)
+
+    // Step 2: 全员投骰决定跑圈顺序（规则书 §3.1）
     const { rolls, order } = engine.rollForOrder()
     bus.broadcast(MSG.ORDER_DICE_RESULT, { rolls })
     bus.broadcast(MSG.ORDER_DECIDED, { order })
-
     if (logger) logger.recordOrderDice(rolls, order)
 
-    // Step 2: 按顺序分配宠物（模拟器自动分配，在线版由玩家选择）
+    // Step 3: 按顺序分配宠物，同时发放天赋卡（规则书 §3.1，天赋为必须项）
     const PETS = ['猫', '狗', '兔子', '鹦鹉']
-    engine.assignPets(PETS)
-    bus.broadcast(MSG.PET_ASSIGNED, {
-      assignments: order.map((id, i) => ({ playerId: id, pet: PETS[i] }))
-    })
+    const petAssignments = engine.assignPets(PETS)  // 返回含天赋卡的分配记录
+    bus.broadcast(MSG.PET_ASSIGNED, { assignments: petAssignments })
+    bus.broadcast(MSG.TALENT_DEALT, { assignments: petAssignments })
+    if (logger) {
+      logger.recordPetAssignment(order, PETS)
+      logger.recordTalentDealt(petAssignments)
+    }
 
-    if (logger) logger.recordPetAssignment(order, PETS)
-
-    // Step 3: 按顺序分配起始休整格（模拟器按顺序自动选，在线版由玩家点击）
+    // Step 4: 按顺序分配起始休整格（规则书 §3.1）
     const startPositions = engine.board.getStartPositions()
     const posMap = {}
     order.forEach((id, i) => {
@@ -196,7 +214,6 @@ export class Simulator {
     })
     engine.assignStartPositions(posMap)
     bus.broadcast(MSG.START_POS_ASSIGNED, { posMap })
-
     if (logger) logger.recordStartPositions(order, posMap, engine)
 
     // ===== 开局完成，广播游戏开始 =====
