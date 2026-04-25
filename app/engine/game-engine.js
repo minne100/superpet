@@ -127,46 +127,46 @@ class GameEngine {
    */
   rollForOrder () {
     const playerIds = this.players.map(p => p.id)
-    const allRolls = []  // 完整投骰记录（含平局重投）
-    const finalOrder = []
-    let remaining = [...playerIds]  // 尚未确定名次的玩家
-    let round = 1
+    const allRolls = []
 
-    while (remaining.length > 0) {
-      // 本轮所有待排序玩家各投一次
-      const roundRolls = remaining.map(id => ({
-        round,
-        playerId: id,
-        value: this.#rollDice()
-      }))
-      allRolls.push(...roundRolls)
+    /**
+     * 递归排序：对 candidates 投骰，按点数从高到低排名次。
+     * 相同点数的玩家递归重投，直到完全分出先后。
+     * 返回按名次排好的玩家ID数组。
+     */
+    const sortGroup = (candidates, round) => {
+      if (candidates.length === 1) return candidates
 
-      // 按点数从高到低分组：相同点数的玩家为一组
+      // 投骰
+      const rolls = candidates.map(id => {
+        const value = this.#rollDice()
+        allRolls.push({ round, playerId: id, value })
+        return { playerId: id, value }
+      })
+
+      // 按点数从高到低分组
       const groups = new Map()
-      for (const r of roundRolls) {
+      for (const r of rolls) {
         if (!groups.has(r.value)) groups.set(r.value, [])
         groups.get(r.value).push(r.playerId)
       }
 
-      // 按点数从高到低处理各组
-      const sortedValues = [...groups.keys()].sort((a, b) => b - a)
-      const newRemaining = []
-
-      for (const val of sortedValues) {
+      // 从高到低处理每组：唯一点数直接确定，平局递归重投
+      const sorted = [...groups.keys()].sort((a, b) => b - a)
+      const result = []
+      for (const val of sorted) {
         const group = groups.get(val)
         if (group.length === 1) {
-          // 唯一点数：直接确定名次
-          finalOrder.push(group[0])
+          result.push(group[0])
         } else {
-          // 平局：该组玩家需要重投才能分出先后
-          newRemaining.push(...group)
+          // 平局：递归重投这一组，结果依次排在当前位置
+          result.push(...sortGroup(group, round + 1))
         }
       }
-
-      remaining = newRemaining
-      round++
+      return result
     }
 
+    const finalOrder = sortGroup(playerIds, 1)
     this.turnManager.init(finalOrder)
     return { rolls: allRolls, order: finalOrder }
   }
