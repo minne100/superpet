@@ -1,4 +1,4 @@
-# Licensing Terms for SuperPet Online
+# Licensing Terms for SuperPet
 
 This project is distributed under a dual-license model to distinguish between its digital software engine and the physical board game intellectual property.
 
@@ -26,7 +26,7 @@ The **Game Assets and Intellectual Property** (defined below) are **NOT** licens
 - The visual design, illustrations, and artwork of cards (including `artifacts/` and image files).
 - The specific balance, values, and narrative content contained within the card data (`cards/*.json`).
 - Physical product design, board layouts, and manufacturing specifications.
-- The "SuperPet Online" brand and associated trademarks.
+- The "SuperPet" brand and associated trademarks.
 
 **Reservation of Rights:**
 - **Physical Production:** The author (minne100) reserves the **exclusive right** to manufacture, print, distribute, and sell physical versions of the cards and the game.
