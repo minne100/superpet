@@ -365,6 +365,9 @@ class GameEngine {
     player.prevPosition = newPrevPos
     player.position = newPos
 
+    // 规则书 §3.2：每移动一格获得1金币
+    player.addGold(steps)
+
     // 修炼选项（仅当落在修炼格时有效）
     // cultivateStat: 'attack' | 'defense'（不用内功卡时，选择加攻还是加防）
     // neigongCardId: 选择使用的内功卡ID，null表示不用内功卡
