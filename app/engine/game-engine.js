@@ -127,13 +127,13 @@ class GameEngine {
    */
   rollForOrder () {
     const playerIds = this.players.map(p => p.id)
-    const allRolls = []   // 完整投骰记录（含平局重投）
-    let remaining = [...playerIds]  // 还没确定顺序的玩家
+    const allRolls = []  // 完整投骰记录（含平局重投）
     const finalOrder = []
+    let remaining = [...playerIds]  // 尚未确定名次的玩家
     let round = 1
 
     while (remaining.length > 0) {
-      // 所有待排序玩家各投一次
+      // 本轮所有待排序玩家各投一次
       const roundRolls = remaining.map(id => ({
         round,
         playerId: id,
@@ -141,34 +141,33 @@ class GameEngine {
       }))
       allRolls.push(...roundRolls)
 
-      // 找最大值
-      const maxVal = Math.max(...roundRolls.map(r => r.value))
-      const winners = roundRolls.filter(r => r.value === maxVal)
-
-      if (winners.length === 1) {
-        // 唯一最高分，确定顺序
-        finalOrder.push(winners[0].playerId)
-        remaining = remaining.filter(id => id !== winners[0].playerId)
-        round = 1  // 重置轮次供下一组平局使用
-      } else {
-        // 平局：只有平局玩家继续投，其他点数低的先排到后面
-        const losers = roundRolls
-          .filter(r => r.value < maxVal)
-          .sort((a, b) => b.value - a.value)  // 低分按大到小排
-        // 低分玩家按本轮分数从大到小插入到最后
-        for (const l of losers) {
-          finalOrder.push(l.playerId)
-          remaining = remaining.filter(id => id !== l.playerId)
-        }
-        // 平局玩家继续下一轮
-        remaining = winners.map(w => w.playerId)
-        round++
+      // 按点数从高到低分组：相同点数的玩家为一组
+      const groups = new Map()
+      for (const r of roundRolls) {
+        if (!groups.has(r.value)) groups.set(r.value, [])
+        groups.get(r.value).push(r.playerId)
       }
+
+      // 按点数从高到低处理各组
+      const sortedValues = [...groups.keys()].sort((a, b) => b - a)
+      const newRemaining = []
+
+      for (const val of sortedValues) {
+        const group = groups.get(val)
+        if (group.length === 1) {
+          // 唯一点数：直接确定名次
+          finalOrder.push(group[0])
+        } else {
+          // 平局：该组玩家需要重投才能分出先后
+          newRemaining.push(...group)
+        }
+      }
+
+      remaining = newRemaining
+      round++
     }
 
-    // 用确定好的顺序初始化回合管理器
     this.turnManager.init(finalOrder)
-
     return { rolls: allRolls, order: finalOrder }
   }
 
