@@ -19,6 +19,7 @@
 import { GameEngine } from '../engine/game-engine.js'
 import { GameBus, MSG } from './game-bus.js'
 import { PlayerAgent } from './player-agent.js'
+import { GameLogger } from './game-logger.js'
 
 /**
  * @class SimResult
@@ -72,9 +73,9 @@ export class Simulator {
       mode: config.mode || 'standard',
       verbose: config.verbose ?? false,
       seedBase: config.seedBase ?? Date.now(),
-      // 最大回合数保护（防止游戏因为卡牌耗尽条件难以触发而无限运行）
-      // 标准值：每局约40轮×4人=160回合，设500为安全上限
-      maxTurns: config.maxTurns ?? 500
+      maxTurns: config.maxTurns ?? 500,
+      // trace: 开启后 runSingleGame 的结果会附带 result.log（完整游戏日志文本）
+      trace: config.trace ?? false
     }
   }
 
@@ -121,13 +122,7 @@ export class Simulator {
     const seed = this.config.seedBase + gameIndex * 1000
     const engine = new GameEngine({ seed, mode: this.config.mode })
     engine.init()
-
-    // 分配初始起点
-    const startPositions = engine.board.getStartPositions()
-    engine.players.forEach((player, i) => {
-      player.position = startPositions[i % startPositions.length]
-      player.prevPosition = null
-    })
+    // 注意：起点、宠物、顺序由 Coordinator 的开局流程负责，不在这里设置
 
     const bus = new GameBus()
     const playerIds = engine.players.map(p => p.id)
@@ -138,8 +133,11 @@ export class Simulator {
     const result = new SimResult()
     result.gameIndex = gameIndex
 
+    // Logger（trace模式时创建，否则为null）
+    const logger = this.config.trace ? new GameLogger() : null
+
     // Coordinator：游戏主循环（独立的 async 函数）
-    const coordinatorDone = this.#runCoordinator(engine, bus, playerIds, result)
+    const coordinatorDone = this.#runCoordinator(engine, bus, playerIds, result, logger)
 
     // 同时启动：4个 Agent + 1个 Coordinator
     await Promise.all([
@@ -148,6 +146,10 @@ export class Simulator {
     ])
 
     bus.clearWaiters()
+
+    // 如果是 trace 模式，把日志挂到结果上
+    if (logger) result.log = logger.render()
+
     return result
   }
 
@@ -157,7 +159,7 @@ export class Simulator {
    * @description 游戏协调器。驱动回合顺序，广播消息，检查终局。
    * 不做任何游戏决策，只负责流程控制。
    */
-  async #runCoordinator (engine, bus, playerIds, result) {
+  async #runCoordinator (engine, bus, playerIds, result, logger = null) {
     const COORD = '_coordinator'
     let turnCount = 0
 
@@ -167,39 +169,128 @@ export class Simulator {
         m.type === MSG.AGENT_READY && m.payload?.playerId === id
       ))
     )
+
+    // ===== 开局阶段 =====
+
+    // Step 1: 全员投骰决定跑圈顺序（规则书 §3.1）
+    const { rolls, order } = engine.rollForOrder()
+    bus.broadcast(MSG.ORDER_DICE_RESULT, { rolls })
+    bus.broadcast(MSG.ORDER_DECIDED, { order })
+
+    if (logger) logger.recordOrderDice(rolls, order)
+
+    // Step 2: 按顺序分配宠物（模拟器自动分配，在线版由玩家选择）
+    const PETS = ['猫', '狗', '兔子', '鹦鹉']
+    engine.assignPets(PETS)
+    bus.broadcast(MSG.PET_ASSIGNED, {
+      assignments: order.map((id, i) => ({ playerId: id, pet: PETS[i] }))
+    })
+
+    if (logger) logger.recordPetAssignment(order, PETS)
+
+    // Step 3: 按顺序分配起始休整格（模拟器按顺序自动选，在线版由玩家点击）
+    const startPositions = engine.board.getStartPositions()
+    const posMap = {}
+    order.forEach((id, i) => {
+      posMap[id] = startPositions[i % startPositions.length]
+    })
+    engine.assignStartPositions(posMap)
+    bus.broadcast(MSG.START_POS_ASSIGNED, { posMap })
+
+    if (logger) logger.recordStartPositions(order, posMap, engine)
+
+    // ===== 开局完成，广播游戏开始 =====
     bus.broadcast(MSG.GAME_START, { state: engine.getState() })
 
     while (!engine.gameOver && turnCount < this.config.maxTurns) {
       const currentId = engine.turnManager.getCurrentPlayer()
+      const currentRound = engine.turnManager.round
+      const turnInRound = engine.turnManager.actedThisRound + 1
 
-      // 先注册 TURN_END 等待，再发 YOUR_TURN
-      // 用 setImmediate 让出事件循环，确保 Agent 的 waitForTypes 已注册
-      // （Agent 收到 GAME_START 或上轮 TURN_END resolve 后，
-      //   需要一个 macrotask 才能执行到下一个 waitForTypes 注册）
+      // 回合开始前：快照当前玩家状态
+      const playerBefore = logger
+        ? logger.snapshotPlayer(engine.getPlayer(currentId))
+        : null
+
+      if (logger) {
+        logger.recordTurnStart(currentRound, turnInRound, currentId)
+      }
+
+      // 注册对 MOVE_RESULT 的监听（在 YOUR_TURN 之前注册，确保不丢失）
+      const moveResultPromise = logger
+        ? bus.waitFor(COORD, m =>
+            m.type === MSG.MOVE_RESULT && m.payload?.playerId === currentId
+          )
+        : null
+
+      // 注册 TURN_END 等待
       const turnEndPromise = bus.waitFor(COORD, m =>
         m.type === MSG.TURN_END && m.payload?.playerId === currentId
       )
 
       await new Promise(r => setImmediate(r))
 
-      // 单播 YOUR_TURN（此时 Agent 已经注册好了 waitForTypes）
+      // 单播 YOUR_TURN
       bus.unicast(currentId, MSG.YOUR_TURN, { playerId: currentId })
 
-      // 等待回合结束
-      await turnEndPromise
+      // 等待 MOVE_RESULT（如果有 logger）
+      if (moveResultPromise) {
+        const moveMsg = await moveResultPromise
+        const mv = moveMsg.payload
+
+        // 记录骰子（从步数反推不准确，步数就是骰子值）
+        logger.recordDice(currentId, mv.steps)
+
+        // 记录移动，带路口选择信息
+        const junctionDetails = (mv.passedJunctions || []).map((j, i) => {
+          const choiceIdx = mv.choices?.[i] ?? 0
+          const board = engine.board
+          const options = board.getNextCells(j.pos, null)
+          const chosenDir = options[choiceIdx] ?? options[0]
+          return { pos: j.pos, choiceIdx, chosenDir }
+        })
+
+        const cellType = engine.board.getType(mv.newPos)
+        logger.recordMove(
+          currentId,
+          mv.oldPos,
+          mv.newPos,
+          cellType,
+          mv.steps,
+          junctionDetails
+        )
+
+        // 记录格子效果（等 TURN_END 后拿到最终状态）
+        await turnEndPromise
+
+        const playerAfter = logger.snapshotPlayer(engine.getPlayer(currentId))
+
+        // 把 cellEvents 转为可读描述
+        const effectDescs = this.#describeCellEvents(mv.cellEvents || [], engine)
+
+        logger.recordCellEffect(
+          currentId,
+          cellType,
+          effectDescs,
+          playerBefore,
+          playerAfter
+        )
+      } else {
+        await turnEndPromise
+      }
 
       turnCount++
       result.diceRolls++
 
-      // 推进引擎到下一回合
       engine.applyAction({ type: 'NEXT_TURN', playerId: currentId })
     }
 
-    // 游戏结束，广播结果
+    // 游戏结束
     const finalResult = engine.getResult() || []
     bus.broadcast(MSG.GAME_OVER, { result: finalResult })
 
-    // 填写结果
+    if (logger) logger.recordGameEnd(finalResult)
+
     result.totalRounds = engine.turnManager.round
     result.rankings = finalResult
     result.winner = finalResult[0]?.id || playerIds[0]
@@ -209,6 +300,51 @@ export class Simulator {
       result.finalAttack.push(p.attack)
       result.finalDefense.push(p.defense)
     }
+  }
+
+  /**
+   * @method #describeCellEvents
+   * @private
+   * @description 把引擎返回的 cellEvents 数组转为可读中文描述
+   */
+  #describeCellEvents (cellEvents, engine) {
+    const descs = []
+    for (const ev of cellEvents) {
+      switch (ev.type) {
+        case 'rest_gold':
+          descs.push({ desc: `休整，获得 ${ev.gain} 金币` })
+          break
+        case 'cultivate':
+          if (ev.neigongUsed) {
+            descs.push({ desc: `修炼：攻击+${1 + (ev.attackGain || 0)}，防御+${1 + (ev.defenseGain || 0)}（使用内功卡 ${ev.neigongUsed}）` })
+          } else {
+            descs.push({ desc: `修炼：攻击+1，防御+1` })
+          }
+          break
+        case 'draw_move':
+          descs.push({ desc: `抽到招式卡 [${ev.cardId}]` })
+          break
+        case 'draw_neigong':
+          descs.push({ desc: `抽到内功卡 [${ev.cardId}]` })
+          break
+        case 'opportunity_executed':
+          descs.push({ desc: `机遇卡 [${ev.cardId}] 已执行` })
+          break
+        case 'event_executed':
+          descs.push({ desc: `事件卡 [${ev.cardId}] 已执行` })
+          break
+        case 'battle':
+          if (ev.victorId) {
+            descs.push({ desc: `比武触发！胜者：${ev.victorId}，金币转移 ${ev.goldTransfer || 0}` })
+          } else {
+            descs.push({ desc: `比武触发！结果：${ev.outcome}` })
+          }
+          break
+        default:
+          descs.push({ desc: `[${ev.type}]` })
+      }
+    }
+    return descs
   }
 
   /**

@@ -95,33 +95,112 @@ class GameEngine {
 
   /**
    * @method init
-   * @description 初始化游戏：创建玩家、洗牌、开始第一轮
-   * 返回初始状态快照
+   * @description 初始化游戏：创建玩家、洗牌。
+   * 注意：此时尚未确定跑圈顺序，也未分配宠物和起点。
+   * 正式流程：init() → rollForOrder() → assignPets() → assignStartPos() → 开始跑圈
    */
   init () {
-    const { playerIds, order } = this.config
+    const { playerIds } = this.config
 
-    // 创建4个玩家
+    // 创建玩家（ID为A/B/C/D，宠物在开局阶段选择）
     this.players = playerIds.map(id => new Player({ id }))
-
-    // 初始化回合顺序
-    const effectiveOrder = order.length === 4 ? order : playerIds
-    this.turnManager.init(effectiveOrder)
 
     // 洗牌所有牌堆
     this.decks.move = createDeck('move', this.#nextSeed())
     this.decks.neigong = createDeck('neigong', this.#nextSeed())
     this.decks.opportunity = createDeck('opportunity', this.#nextSeed())
     this.decks.event = createDeck('event', this.#nextSeed())
-    // 比武卡牌堆（TODO: 洗牌逻辑）
     this.decks.battle = []
 
-    // 每人发初始卡
-    this.#dealInitialCards()
-
-    this.phase = 'run'
+    this.phase = 'setup'  // 开局阶段，还未开始跑圈
 
     return this.getState()
+  }
+
+  /**
+   * @method rollForOrder
+   * @description 规则书 §3.1：所有玩家投骰子，按点数从大到小决定跑圈顺序。
+   * 点数相同者继续投，直到分出高下。
+   * @returns {{ rolls: Object[], order: string[] }}
+   *   rolls: 每轮每人的投骰结果 [{round, playerId, value}]
+   *   order: 最终跑圈顺序（从先到后的玩家ID列表）
+   */
+  rollForOrder () {
+    const playerIds = this.players.map(p => p.id)
+    const allRolls = []   // 完整投骰记录（含平局重投）
+    let remaining = [...playerIds]  // 还没确定顺序的玩家
+    const finalOrder = []
+    let round = 1
+
+    while (remaining.length > 0) {
+      // 所有待排序玩家各投一次
+      const roundRolls = remaining.map(id => ({
+        round,
+        playerId: id,
+        value: this.#rollDice()
+      }))
+      allRolls.push(...roundRolls)
+
+      // 找最大值
+      const maxVal = Math.max(...roundRolls.map(r => r.value))
+      const winners = roundRolls.filter(r => r.value === maxVal)
+
+      if (winners.length === 1) {
+        // 唯一最高分，确定顺序
+        finalOrder.push(winners[0].playerId)
+        remaining = remaining.filter(id => id !== winners[0].playerId)
+        round = 1  // 重置轮次供下一组平局使用
+      } else {
+        // 平局：只有平局玩家继续投，其他点数低的先排到后面
+        const losers = roundRolls
+          .filter(r => r.value < maxVal)
+          .sort((a, b) => b.value - a.value)  // 低分按大到小排
+        // 低分玩家按本轮分数从大到小插入到最后
+        for (const l of losers) {
+          finalOrder.push(l.playerId)
+          remaining = remaining.filter(id => id !== l.playerId)
+        }
+        // 平局玩家继续下一轮
+        remaining = winners.map(w => w.playerId)
+        round++
+      }
+    }
+
+    // 用确定好的顺序初始化回合管理器
+    this.turnManager.init(finalOrder)
+
+    return { rolls: allRolls, order: finalOrder }
+  }
+
+  /**
+   * @method assignPets
+   * @description 规则书 §3.1：按跑圈顺序依次选择宠物。
+   * 模拟器中按顺序自动分配，在线版由玩家点击选择。
+   * @param {string[]} petOrder — 按跑圈顺序对应的宠物名列表
+   *   e.g. ['猫', '狗', '兔子', '鹦鹉']
+   */
+  assignPets (petOrder) {
+    const order = this.turnManager.order
+    order.forEach((playerId, i) => {
+      const player = this.getPlayer(playerId)
+      if (player) player.name = petOrder[i] || playerId
+    })
+  }
+
+  /**
+   * @method assignStartPositions
+   * @description 规则书 §3.1：按跑圈顺序依次选择空的休整格作为出发点。
+   * @param {Object} posMap — { playerId: [row, col] }
+   */
+  assignStartPositions (posMap) {
+    for (const [playerId, pos] of Object.entries(posMap)) {
+      const player = this.getPlayer(playerId)
+      if (player) {
+        player.position = pos
+        player.prevPosition = null
+      }
+    }
+    this.phase = 'run'  // 开局完成，进入跑圈阶段
   }
 
   /**
