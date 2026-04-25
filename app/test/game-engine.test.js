@@ -11,7 +11,8 @@ describe('GameEngine 初始化', () => {
     const engine = new GameEngine({ seed: 42 })
     engine.init()
     assert.strictEqual(engine.players.length, 4)
-    assert.strictEqual(engine.phase, 'run')
+    // init() 后进入 setup 阶段，需完成 rollForOrder+assignPets+assignStartPositions 才进 run
+    assert.strictEqual(engine.phase, 'setup')
     assert.strictEqual(engine.gameOver, false)
   })
 
@@ -42,9 +43,9 @@ describe('GameEngine 初始化', () => {
     const engine = new GameEngine({ seed: 42 })
     engine.init()
     const state = engine.getState()
-    assert.strictEqual(state.phase, 'run')
+    assert.strictEqual(state.phase, 'setup')  // init后是setup，开局完成后才是run
     assert.strictEqual(state.players.length, 4)
-    assert.strictEqual(state.deckSizes.move > 20, true) // 30-4=26
+    assert.strictEqual(state.deckSizes.move > 20, true)
     assert.ok(state.turnManager)
     assert.ok(state.board)
   })
@@ -93,11 +94,16 @@ describe('GameEngine applyAction', () => {
   it('NEXT_TURN应推进到下一玩家', () => {
     const engine = new GameEngine({ seed: 42 })
     engine.init()
+    // 完成开局流程才能正确使用 turnManager
+    engine.rollForOrder()
+    engine.assignPets(['猫', '狗', '兔子', '鹦鹉'])
+    const posMap = {}
+    const starts = engine.board.getStartPositions()
+    engine.players.forEach((p, i) => { posMap[p.id] = starts[i] })
+    engine.assignStartPositions(posMap)
+
     const current = engine.turnManager.getCurrentPlayer()
-    engine.applyAction({
-      type: 'NEXT_TURN',
-      playerId: current
-    })
+    engine.applyAction({ type: 'NEXT_TURN', playerId: current })
     assert.notStrictEqual(engine.turnManager.getCurrentPlayer(), current)
   })
 })

@@ -365,8 +365,16 @@ class GameEngine {
     player.prevPosition = newPrevPos
     player.position = newPos
 
+    // 修炼选项（仅当落在修炼格时有效）
+    // cultivateStat: 'attack' | 'defense'（不用内功卡时，选择加攻还是加防）
+    // neigongCardId: 选择使用的内功卡ID，null表示不用内功卡
+    const cultivateOpts = {
+      cultivateStat: action.data?.cultivateStat ?? 'attack',
+      neigongCardId: action.data?.neigongCardId ?? null
+    }
+
     // 触发终点格的格子效果
-    const cellEvents = this.#triggerCellEffect(player, oldPos, newPos)
+    const cellEvents = this.#triggerCellEffect(player, oldPos, newPos, cultivateOpts)
 
     return {
       type: 'ADVANCE',
@@ -388,14 +396,14 @@ class GameEngine {
    * @description 玩家到达格子时，根据格子类型触发对应效果。
    * 类型的分布（规则书 §3.1）：
    * - rest(休整): 无效果
-   * - cultivate(修炼): 攻击+1, 防御+1（可用内功卡叠加）
+    * - cultivate(修炼): 攻击+1 或 防御+1（二选一）；若使用内功卡，则按卡牌数值加攻或加防，替代基础+1
    * - move(招式): 抽1张招式卡
    * - neigong(内功): 抽1张内功卡
    * - opportunity(机遇): 抽1张机遇卡并执行
    * - event(事件): 抽1张事件卡并执行
    * - battle(比武): 触发比武阶段（由上层游戏逻辑控制）
    */
-  #triggerCellEffect (player, oldPos, newPos) {
+  #triggerCellEffect (player, oldPos, newPos, cultivateOpts = {}) {
     const cellType = this.board.getType(newPos)
     const events = []
 
@@ -408,24 +416,46 @@ class GameEngine {
       }
 
       case 'cultivate': {
-        // 修炼格：攻击+1, 防御+1
-        player.modifyAttack(1)
-        player.modifyDefense(1)
-        let neigongUsed = null
+        // 修炼格（规则书 §3.2 v1.1）：
+        // - 不用内功卡：攻击+1 或 防御+1，二选一（由 action.data.cultivateStat 决定）
+        // - 用内功卡：按卡牌的 stat/value 加攻或加防，完全替代基础+1（不叠加）
+        // cultivateStat 默认 'attack'，AI 在 PlayerAgent._decideCultivateStat() 中决定
 
-        // 检查玩家是否持有内功卡，可用叠加修炼
-        if (player.hand.neigong && player.hand.neigong.length > 0) {
-          const neigongCard = player.hand.neigong[0]
-          if (neigongCard.attackBonus || neigongCard.defenseBonus) {
-            player.modifyAttack(neigongCard.attackBonus || 0)
-            player.modifyDefense(neigongCard.defenseBonus || 0)
+        const cultivateStat = cultivateOpts.cultivateStat ?? 'attack'
+        let neigongUsed = null
+        let statGained = cultivateStat  // 'attack' | 'defense'
+        let valueGained = 1             // 基础值
+
+        // 检查玩家是否选择使用内功卡
+        const useNeigong = cultivateOpts.neigongCardId ?? null
+        if (useNeigong && player.hand.neigong?.length > 0) {
+          const neigongCard = player.hand.neigong.find(c => c.cardId === useNeigong)
+          if (neigongCard) {
+            // 内功卡自带方向（stat）和数值（value），完全替代基础+1
+            const step = neigongCard.steps?.[0]
+            if (step) {
+              statGained = step.stat   // 'attack' 或 'defense'
+              valueGained = step.value // 内功卡数值（1/2/3）
+            }
             neigongUsed = neigongCard.cardId
-            // 内功卡使用后弃入弃牌堆
             player.removeCard('neigong', neigongCard.cardId)
+            this.discardPiles.neigong.push(neigongCard)
           }
         }
 
-        events.push({ type: 'cultivate', attackGain: 1, defenseGain: 1, neigongUsed })
+        // 应用修炼加成
+        if (statGained === 'attack') {
+          player.modifyAttack(valueGained)
+        } else {
+          player.modifyDefense(valueGained)
+        }
+
+        events.push({
+          type: 'cultivate',
+          stat: statGained,
+          value: valueGained,
+          neigongUsed
+        })
         break
       }
 

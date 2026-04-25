@@ -1,13 +1,13 @@
 {
   "cardId": "neigong_026",
   "type": "neigong",
-  "description": "修炼时防御力额外+3",
+  "description": "修炼时防御力+4",
   "steps": [
     {
       "id": "s01",
       "action": "buff_next_cultivation",
       "stat": "defense",
-      "value": 3,
+      "value": 4,
       "role": "all"
     }
   ]

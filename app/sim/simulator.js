@@ -331,13 +331,15 @@ export class Simulator {
         case 'rest_gold':
           descs.push({ desc: `休整，获得 ${ev.gain} 金币` })
           break
-        case 'cultivate':
+        case 'cultivate': {
+          const statLabel = ev.stat === 'attack' ? '攻击' : '防御'
           if (ev.neigongUsed) {
-            descs.push({ desc: `修炼：攻击+${1 + (ev.attackGain || 0)}，防御+${1 + (ev.defenseGain || 0)}（使用内功卡 ${ev.neigongUsed}）` })
+            descs.push({ desc: `修炼（使用内功卡 ${ev.neigongUsed}）：${statLabel}+${ev.value}` })
           } else {
-            descs.push({ desc: `修炼：攻击+1，防御+1` })
+            descs.push({ desc: `修炼：${statLabel}+${ev.value}` })
           }
           break
+        }
         case 'draw_move':
           descs.push({ desc: `抽到招式卡 [${ev.cardId}]` })
           break

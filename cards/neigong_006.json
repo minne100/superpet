@@ -1,13 +1,13 @@
 {
   "cardId": "neigong_006",
   "type": "neigong",
-  "description": "修炼时攻击力额外+2",
+  "description": "修炼时攻击力+3",
   "steps": [
     {
       "id": "s01",
       "action": "buff_next_cultivation",
       "stat": "attack",
-      "value": 2,
+      "value": 3,
       "role": "all"
     }
   ]

@@ -136,11 +136,26 @@ export class PlayerAgent {
       choices.push(choice)
     }
 
+    // 判断落点格子类型，若是修炼格则决策加攻/加防及是否用内功卡
+    const { pos: landingPos } = this.engine.board.advance(
+      player.position, steps, player.prevPosition, choices
+    )
+    const landingType = this.engine.board.getType(landingPos)
+
+    let cultivateStat = 'attack'
+    let neigongCardId = null
+
+    if (landingType === 'cultivate') {
+      const opts = this._decideCultivate(player)
+      cultivateStat = opts.stat
+      neigongCardId = opts.neigongCardId
+    }
+
     // 执行前进
     const result = this.engine.applyAction({
       type: 'ADVANCE',
       playerId: this.id,
-      data: { steps, choices }
+      data: { steps, choices, cultivateStat, neigongCardId }
     })
 
     this.bus.broadcast(MSG.MOVE_RESULT, {
@@ -149,7 +164,8 @@ export class PlayerAgent {
       oldPos: result.oldPos,
       newPos: result.newPos,
       passedJunctions: result.passedJunctions,
-      choices
+      choices,
+      cellEvents: result.cellEvents ?? []   // 格子触发的效果列表，供 Logger 记录
     }, this.id)
   }
 
@@ -203,6 +219,49 @@ export class PlayerAgent {
     const bestIdx = board.bestDirection(junctionPos, null, lastDice, weights)
 
     return bestIdx
+  }
+
+  /**
+   * @method _decideCultivate
+   * @private
+   * @param {Object} player — 当前玩家状态
+   * @returns {{ stat: string, neigongCardId: string|null }}
+   * @description AI决策：修炼格选择加攻还是加防，以及是否使用内功卡。
+   *
+   * 策略：
+   * - 优先使用内功卡（数值更高）：选攻击型还是防御型由当前属性差值决定
+   * - 无内功卡：攻防差距大的那个优先补
+   * - 攻防差距小时（≤2）：优先加攻（攻击在比武中更主动）
+   */
+  _decideCultivate (player) {
+    const neigongCards = player.hand.neigong ?? []
+
+    // 分出攻击型和防御型内功卡，选最大值的那张
+    const atkCards = neigongCards
+      .filter(c => c.steps?.[0]?.stat === 'attack')
+      .sort((a, b) => (b.steps[0].value) - (a.steps[0].value))
+    const defCards = neigongCards
+      .filter(c => c.steps?.[0]?.stat === 'defense')
+      .sort((a, b) => (b.steps[0].value) - (a.steps[0].value))
+
+    if (atkCards.length > 0 || defCards.length > 0) {
+      // 有内功卡：选对当前属性提升最有价值的方向
+      // 攻守差距大的那方用内功卡加成更值，差距小时优先攻击
+      const needsAtk = player.attack <= player.defense
+      if (needsAtk && atkCards.length > 0) {
+        return { stat: 'attack', neigongCardId: atkCards[0].cardId }
+      }
+      if (!needsAtk && defCards.length > 0) {
+        return { stat: 'defense', neigongCardId: defCards[0].cardId }
+      }
+      // 单方向有卡，使用现有方向
+      if (atkCards.length > 0) return { stat: 'attack', neigongCardId: atkCards[0].cardId }
+      if (defCards.length > 0) return { stat: 'defense', neigongCardId: defCards[0].cardId }
+    }
+
+    // 无内功卡：攻守差距大时补弱的，差距小时优先攻击
+    const stat = (player.defense - player.attack >= 3) ? 'defense' : 'attack'
+    return { stat, neigongCardId: null }
   }
 
   /**
