@@ -113,6 +113,19 @@ export class GameLogger {
     })
   }
 
+  recordSkipTurn (round, turnInRound, playerId, reason) {
+    this._round = round
+    this._turn++
+    this.record({
+      type: 'SKIP_TURN',
+      round,
+      turnInRound,
+      turn: this._turn,
+      playerId,
+      reason
+    })
+  }
+
   recordDice (playerId, value) {
     this.record({
       type: 'DICE',
@@ -311,6 +324,20 @@ export class GameLogger {
           const label = playerLabel(ev.playerId)
           lines.push('')
           lines.push(`  ▶ ${label}(${ev.playerId}) 的回合 [Turn ${ev.turn}]`)
+          break
+        }
+
+        case 'SKIP_TURN': {
+          if (ev.round !== currentRound) {
+            currentRound = ev.round
+            lines.push('')
+            lines.push(`${'━'.repeat(60)}`)
+            lines.push(`  第 ${ev.round} 轮`)
+            lines.push(`${'━'.repeat(60)}`)
+          }
+          const label = playerLabel(ev.playerId)
+          lines.push('')
+          lines.push(`  ⏭ ${label}(${ev.playerId}) 的回合 [Turn ${ev.turn}] - 被跳过（${ev.reason === 'skip_turn' ? '下回合轮空' : ev.reason}）`)
           break
         }
 

@@ -552,7 +552,12 @@ class GameEngine {
           })
           // 执行后入弃牌堆
           this.discardPiles.opportunity.push(card)
-          events.push({ type: 'opportunity_executed', cardId: card.cardId, result })
+          events.push({ 
+            type: 'opportunity_executed', 
+            cardId: card.cardId, 
+            description: card.description || '',
+            result 
+          })
         }
         break
       }
@@ -570,7 +575,12 @@ class GameEngine {
           })
           // 执行后入弃牌堆
           this.discardPiles.event.push(card)
-          events.push({ type: 'event_executed', cardId: card.cardId, result })
+          events.push({ 
+            type: 'event_executed', 
+            cardId: card.cardId, 
+            description: card.description || '',
+            result 
+          })
         }
         break
       }
@@ -651,9 +661,24 @@ class GameEngine {
    * @description 处理轮到下一玩家
    */
   #handleNextTurn (action) {
-    const shouldSkip = (pid) => this.effectManager.get(pid, 'skip_turn')
+    const shouldSkip = (pid) => {
+      const hasSkipTurn = this.effectManager.get(pid, 'skip_turn')
+      if (hasSkipTurn) {
+        this.effectManager.clear(pid, 'skip_turn')
+      }
+      return hasSkipTurn
+    }
     const result = this.turnManager.nextTurn(shouldSkip)
-    this.effectManager.tickAll()
+    for (const [pid, effects] of this.effectManager.registry.entries()) {
+      for (let i = effects.length - 1; i >= 0; i--) {
+        if (effects[i].name !== 'skip_turn' && effects[i].rounds > 0) {
+          effects[i].rounds--
+        }
+        if (effects[i].rounds === 0) {
+          effects.splice(i, 1)
+        }
+      }
+    }
     return { type: 'NEXT_TURN', ...result }
   }
 

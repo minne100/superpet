@@ -92,6 +92,7 @@ class CardInterpreter {
    * @description 依次处理steps数组中的每个step
    */
   #processSteps (steps, loopPlayerId) {
+    const allEffects = []
     for (let i = 0; i < steps.length; i++) {
       this.currentStepIndex = i
       const step = steps[i]
@@ -100,14 +101,20 @@ class CardInterpreter {
       if (action === 'loop') {
         const result = this.#executeLoop(step)
         if (result.waitFor) return result
+        if (result.effects && result.effects.length > 0) {
+          allEffects.push(...result.effects)
+        }
         continue
       }
 
       const result = this.#executeAction(step, action, loopPlayerId)
       if (result.waitFor) return result
+      if (result.effects && result.effects.length > 0) {
+        allEffects.push(...result.effects)
+      }
     }
 
-    return this.#completeResult()
+    return this.#completeResult(allEffects)
   }
 
   /**
@@ -213,7 +220,16 @@ class CardInterpreter {
     }
 
     // 解析玩家ID：优先loopPid，其次step.player，再次triggerPlayer
-    const pid = loopPid || step.player || this.context.triggerPlayerId
+    let pid = loopPid || step.player || this.context.triggerPlayerId
+    // 解析$trigger等特殊变量
+    if (typeof pid === 'string' && pid.startsWith('$')) {
+      const varName = pid.slice(1)
+      if (varName === 'trigger') {
+        pid = this.context.triggerPlayerId
+      } else if (this.context[varName]) {
+        pid = this.context[varName]
+      }
+    }
     if (!pid) {
       return this.#completeResult()
     }
@@ -223,14 +239,22 @@ class CardInterpreter {
       return this.#completeResult()
     }
 
-    switch (action) {
-      case 'add_gold':
-        player.addGold(step.value || 0)
-        break
+    const effects = []
 
-      case 'remove_gold':
-        player.removeGold(step.value || 0)
+    switch (action) {
+      case 'add_gold': {
+        const amount = step.value || 0
+        player.addGold(amount)
+        effects.push({ type: 'add_gold', desc: `${player.name || pid} 获得 ${amount} 金币` })
         break
+      }
+
+      case 'remove_gold': {
+        const amount = step.value || 0
+        const actual = player.removeGold(amount)
+        effects.push({ type: 'remove_gold', desc: `${player.name || pid} 失去 ${actual} 金币` })
+        break
+      }
 
       case 'transfer_gold': {
         const fromPid = step.from || this.context.triggerPlayerId
@@ -241,6 +265,7 @@ class CardInterpreter {
         if (fromPlayer && toPlayer) {
           const actual = fromPlayer.removeGold(amount)
           toPlayer.addGold(actual)
+          effects.push({ type: 'transfer_gold', desc: `${fromPlayer.name || fromPid} 向 ${toPlayer.name || toPid} 转移 ${actual} 金币` })
         }
         break
       }
@@ -254,6 +279,7 @@ class CardInterpreter {
         if (fromPlayer && toPlayer && fromPlayer.hand[cardType] && fromPlayer.hand[cardType].length > 0) {
           const card = fromPlayer.hand[cardType].pop()
           toPlayer.addCard(cardType, card)
+          effects.push({ type: 'transfer_card', desc: `${fromPlayer.name || fromPid} 向 ${toPlayer.name || toPid} 转移1张${cardType === 'move' ? '招式' : '内功'}卡` })
         }
         break
       }
@@ -265,6 +291,7 @@ class CardInterpreter {
           const card = deck.pop()
           if (card) {
             player.addCard(type, card)
+            effects.push({ type: 'draw_card', desc: `${player.name || pid} 抽到${type === 'move' ? '招式' : '内功'}卡 [${card.cardId}]` })
           }
         }
         break
@@ -277,24 +304,62 @@ class CardInterpreter {
           const idx = Math.floor(Math.random() * player.hand[type].length)
           const card = player.hand[type][idx]
           player.removeCard(type, card.cardId)
+          effects.push({ type: 'discard_card', desc: `${player.name || pid} 丢弃1张${type === 'move' ? '招式' : '内功'}卡 [${card.cardId}]` })
         }
         break
       }
 
       case 'perm_buff': {
-        if (step.attack) player.modifyAttack(step.attack)
-        if (step.defense) player.modifyDefense(step.defense)
+        let buffDesc = ''
+        if (step.attack) {
+          player.modifyAttack(step.attack)
+          buffDesc += `攻击+${step.attack} `
+        }
+        if (step.defense) {
+          player.modifyDefense(step.defense)
+          buffDesc += `防御+${step.defense} `
+        }
+        if (buffDesc) {
+          effects.push({ type: 'perm_buff', desc: `${player.name || pid} ${buffDesc.trim()}` })
+        }
         break
       }
 
       case 'debuff': {
+        let debuffDesc = ''
         if (step.attack) {
+          const oldAttack = player.attack
           const newAttack = Math.max(1, player.attack - step.attack)
           player.attack = newAttack
+          debuffDesc += `攻击-${step.attack} `
         }
         if (step.defense) {
+          const oldDefense = player.defense
           const newDefense = Math.max(1, player.defense - step.defense)
           player.defense = newDefense
+          debuffDesc += `防御-${step.defense} `
+        }
+        if (step.effect) {
+          if (engine.effectManager) {
+            engine.effectManager.add(player.id, step.effect, 1, { source: this.card?.cardId })
+          }
+          const effectNames = {
+            'skip_turn': '下回合轮空',
+            'dice_x2': '下次投骰子×2',
+            'dice_half': '下次投骰子÷2',
+            'cultivation_x2': '下次修炼效果×2',
+            'cultivation_skip': '下次修炼无效',
+            'extra_draw_move': '下次额外抽招式卡',
+            'redraw_once': '下次不满意可重新抽卡',
+            'rest_cultivate': '下次休整时可修炼',
+            'double_roll': '下次可投两次骰子',
+            'no_draw': '下次无法抽卡',
+            'next_turn_choose_step': '下次可选择步数'
+          }
+          debuffDesc += `获得【${effectNames[step.effect] || step.effect}】效果 `
+        }
+        if (debuffDesc) {
+          effects.push({ type: 'debuff', desc: `${player.name || pid} ${debuffDesc.trim()}` })
         }
         break
       }
@@ -303,6 +368,7 @@ class CardInterpreter {
         // 使用EffectManager添加修炼加成效果
         if (engine.effectManager) {
           engine.effectManager.add(player.id, 'cultivation_x2', 1)
+          effects.push({ type: 'buff_next_cultivation', desc: `${player.name || pid} 获得下次修炼双倍效果` })
         }
         break
       }
@@ -311,14 +377,16 @@ class CardInterpreter {
         // 立即修炼（攻击+1, 防御+1）
         player.modifyAttack(1)
         player.modifyDefense(1)
+        effects.push({ type: 'immediate_cultivate', desc: `${player.name || pid} 立即修炼：攻击+1 防御+1` })
         break
       }
 
       case 'advance': {
         const steps = step.value || step.steps || 0
+        const direction = step.direction === 'backward' ? '后退' : '前进'
         // 调整位置（仅数值，不触发格子效果）
         const maxPos = engine.board ? engine.board.getTotalCells() - 1 : 31
-        // 根据direction决定前进或后退
+        const oldPos = player.position
         if (step.direction === 'backward') {
           const newPos = (player.position - steps + maxPos + 1) % (maxPos + 1)
           player.position = newPos
@@ -326,6 +394,7 @@ class CardInterpreter {
           const newPos = (player.position + steps) % (maxPos + 1)
           player.position = newPos
         }
+        effects.push({ type: 'advance', desc: `${player.name || pid} ${direction} ${steps} 步：[${oldPos}] → [${player.position}]` })
         break
       }
 
@@ -338,6 +407,7 @@ class CardInterpreter {
           const card = player.hand[type][idx]
           player.removeCard(type, card.cardId)
           deck.push(card)
+          effects.push({ type: 'return_to_deck', desc: `${player.name || pid} 将1张${type === 'move' ? '招式' : '内功'}卡 [${card.cardId}] 放回牌堆` })
         }
         break
       }
@@ -346,6 +416,7 @@ class CardInterpreter {
         // 为玩家添加一次免伤效果
         if (engine.effectManager) {
           engine.effectManager.add(player.id, 'negate_damage', 1, { remaining: 1 })
+          effects.push({ type: 'negate_damage', desc: `${player.name || pid} 获得一次免伤效果` })
         }
         break
       }
@@ -355,31 +426,34 @@ class CardInterpreter {
         const type = step.type || 'move'
         const count = player.hand[type] ? player.hand[type].length : 0
         const expected = step.count || step.value || 1
+        let conditionDesc = ''
         if (step.compare === '>=') {
-          return count >= expected ? this.#completeResult() : this.#completeResult()
+          conditionDesc = `拥有${type === 'move' ? '招式' : '内功'}卡 >= ${expected}`
         } else if (step.compare === '>') {
-          return count > expected ? this.#completeResult() : this.#completeResult()
+          conditionDesc = `拥有${type === 'move' ? '招式' : '内功'}卡 > ${expected}`
         } else if (step.compare === '<=') {
-          return count <= expected ? this.#completeResult() : this.#completeResult()
+          conditionDesc = `拥有${type === 'move' ? '招式' : '内功'}卡 <= ${expected}`
         } else if (step.compare === '<') {
-          return count < expected ? this.#completeResult() : this.#completeResult()
+          conditionDesc = `拥有${type === 'move' ? '招式' : '内功'}卡 < ${expected}`
         } else if (step.compare === '!=') {
-          return count !== expected ? this.#completeResult() : this.#completeResult()
+          conditionDesc = `拥有${type === 'move' ? '招式' : '内功'}卡 != ${expected}`
         } else {
-          // 默认精确匹配
-          return count === expected ? this.#completeResult() : this.#completeResult()
+          conditionDesc = `拥有${type === 'move' ? '招式' : '内功'}卡 = ${expected}`
         }
+        const result = count >= expected ? '满足' : '不满足'
+        effects.push({ type: 'has_cards?', desc: `${player.name || pid} ${conditionDesc}：${result}（当前${count}张）` })
+        return this.#completeResult(effects)
       }
 
       case 'if':
         // if的condition由calc预先计算，直接完成不处理
-        return this.#completeResult()
+        return this.#completeResult(effects)
 
       default:
-        return this.#completeResult()
+        return this.#completeResult(effects)
     }
 
-    return this.#completeResult()
+    return this.#completeResult(effects)
   }
 
   /**
@@ -422,14 +496,18 @@ class CardInterpreter {
   #executeLoop (step) {
     const who = step.who || '$all'
     const players = this.#resolvePlayerList(who)
+    const loopEffects = []
 
     for (const pid of players) {
       const processedDo = this.#substituteVar(step.do, pid)
       const result = this.#processSteps(processedDo, pid)
       if (result.waitFor) return result
+      if (result.effects && result.effects.length > 0) {
+        loopEffects.push(...result.effects)
+      }
     }
 
-    return this.#completeResult()
+    return this.#completeResult(loopEffects)
   }
 
   /**
@@ -510,12 +588,13 @@ class CardInterpreter {
   /**
    * @method #completeResult
    * @private
+   * @param {Array} [effects=[]] - 执行效果描述
    * @returns {ExecutionResult}
    */
-  #completeResult () {
+  #completeResult (effects = []) {
     return {
       complete: true,
-      effects: [],
+      effects: effects,
       broadcasts: [],
       waitFor: null
     }

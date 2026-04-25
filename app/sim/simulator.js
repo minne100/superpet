@@ -224,6 +224,16 @@ export class Simulator {
       const currentRound = engine.turnManager.round
       const turnInRound = engine.turnManager.actedThisRound + 1
 
+      // 回合开始前检查 skip_turn 效果
+      if (engine.effectManager.get(currentId, 'skip_turn')) {
+        engine.effectManager.clear(currentId, 'skip_turn')
+        if (logger) {
+          logger.recordSkipTurn(currentRound, turnInRound, currentId, 'skip_turn')
+        }
+        engine.applyAction({ type: 'NEXT_TURN', playerId: currentId })
+        continue
+      }
+
       // 回合开始前：快照当前玩家状态
       const playerBefore = logger
         ? logger.snapshotPlayer(engine.getPlayer(currentId))
@@ -364,10 +374,22 @@ export class Simulator {
           descs.push({ desc: `抽到内功卡 [${ev.cardId}]` })
           break
         case 'opportunity_executed':
-          descs.push({ desc: `机遇卡 [${ev.cardId}] 已执行` })
+          descs.push({ desc: `机遇卡 [${ev.cardId}] - ${ev.description || ''} 已执行` })
+          // 添加详细执行流程
+          if (ev.result && ev.result.effects && ev.result.effects.length > 0) {
+            for (const effect of ev.result.effects) {
+              descs.push({ desc: `  - ${effect.desc || effect.type}` })
+            }
+          }
           break
         case 'event_executed':
-          descs.push({ desc: `事件卡 [${ev.cardId}] 已执行` })
+          descs.push({ desc: `事件卡 [${ev.cardId}] - ${ev.description || ''} 已执行` })
+          // 添加详细执行流程
+          if (ev.result && ev.result.effects && ev.result.effects.length > 0) {
+            for (const effect of ev.result.effects) {
+              descs.push({ desc: `  - ${effect.desc || effect.type}` })
+            }
+          }
           break
         case 'battle':
           if (ev.victorId) {
