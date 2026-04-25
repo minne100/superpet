@@ -1,0 +1,42 @@
+{
+  "cardId": "event_022",
+  "type": "event",
+  "description": "投骰子大于3的玩家获得5金币",
+  "steps": [
+    {
+      "id": "loop_check",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "roll_{p}",
+          "role": {
+            "target": { "player": "{p}", "action": "roll_dice" },
+            "others": { "action": "wait_dice", "from": "{p}" }
+          },
+          "on_receive": {
+            "message_type": "dice_result",
+            "filter": { "sender": "{p}" },
+            "handle": { "action": "store", "as": "dice_{p}", "value": "msg.value" }
+          }
+        },
+        {
+          "id": "check_{p}",
+          "action": "if",
+          "condition": "dice_{p} > 3",
+          "do": [
+            {
+              "id": "give_{p}",
+              "action": "add_gold",
+              "target": "{p}",
+              "value": 5,
+              "role": "all"
+            }
+          ],
+          "role": "all"
+        }
+      ]
+    }
+  ]
+}

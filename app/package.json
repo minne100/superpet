@@ -1,0 +1,11 @@
+{
+  "name": "superpet-online",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "超级宠物在线版 - 桌游游戏引擎",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:watch": "node --test --watch test/*.test.js"
+  }
+}

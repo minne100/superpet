@@ -1,0 +1,75 @@
+{
+  "cardId": "event_003",
+  "type": "event",
+  "description": "投骰子最大的玩家从最小的玩家处夺取1张招式卡（对方无则忽略）",
+  "steps": [
+    {
+      "id": "dice_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "roll_{p}",
+          "role": {
+            "target": { "player": "{p}", "action": "roll_dice" },
+            "others": { "action": "wait_dice", "from": "{p}" }
+          },
+          "on_receive": {
+            "message_type": "dice_result",
+            "filter": { "sender": "{p}" },
+            "handle": { "action": "store", "as": "dice_{p}", "value": "msg.value" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "calc",
+      "action": "calc",
+      "expression": "find_max_min(dice_A, dice_B, dice_C, dice_D)",
+      "store": { "max": "$winner", "min": "$loser" },
+      "role": "all",
+      "tie": { "goto": "dice_loop" }
+    },
+    {
+      "id": "check_loser_hand",
+      "action": "has_cards?",
+      "who": "$loser",
+      "card_type": "move",
+      "min": 1,
+      "role": "all",
+      "fail": { "goto": "end" }
+    },
+    {
+      "id": "winner_select",
+      "role": {
+        "actor": {
+          "player": "$winner",
+          "action": "reveal_and_pick",
+          "source": "$loser",
+          "filter": "move_only"
+        },
+        "target": {
+          "player": "$loser",
+          "action": "wait_pick"
+        },
+        "others": {
+          "action": "wait"
+        }
+      },
+      "on_receive": {
+        "message_type": "card_selection",
+        "filter": { "sender": "$winner", "cardId": "event_003" },
+        "handle": { "action": "store", "as": "$chosen", "value": "msg.chosenCard" }
+      }
+    },
+    {
+      "id": "transfer",
+      "action": "transfer_card",
+      "from": "$loser",
+      "to": "$winner",
+      "card": "$chosen",
+      "role": "all"
+    }
+  ]
+}

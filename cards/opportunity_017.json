@@ -1,0 +1,13 @@
+{
+  "cardId": "opportunity_017",
+  "type": "opportunity",
+  "description": "原地修炼一次",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "immediate_cultivate",
+      "player": "$trigger",
+      "role": "all"
+    }
+  ]
+}

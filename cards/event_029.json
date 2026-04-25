@@ -1,0 +1,31 @@
+{
+  "cardId": "event_029",
+  "type": "event",
+  "description": "金币多于下手玩家的玩家丢失5金币",
+  "steps": [
+    {
+      "id": "loop_check",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "compare_{p}",
+          "action": "if",
+          "condition": "gold_of({p}) > gold_of($next_player_of({p}))",
+          "do": [
+            {
+              "id": "lose_{p}",
+              "action": "remove_gold",
+              "target": "{p}",
+              "value": 5,
+              "floor": 0,
+              "role": "all"
+            }
+          ],
+          "role": "all"
+        }
+      ]
+    }
+  ]
+}

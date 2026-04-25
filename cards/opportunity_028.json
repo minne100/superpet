@@ -1,0 +1,56 @@
+{
+  "cardId": "opportunity_028",
+  "type": "opportunity",
+  "description": "投骰子大于3则选择丢弃一张招式卡",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "roll_dice",
+      "by": "$trigger",
+      "store_as": "$n",
+      "role": {
+        "target": { "player": "$trigger", "action": "roll_dice" },
+        "others": { "action": "wait_dice", "from": "$trigger" }
+      },
+      "on_receive": {
+        "message_type": "dice_result",
+        "filter": { "sender": "$trigger" },
+        "handle": { "action": "store", "as": "$n", "value": "msg.value" }
+      }
+    },
+    {
+      "id": "s02",
+      "action": "if",
+      "condition": "$n > 3",
+      "do": [
+        {
+          "id": "s02_a",
+          "action": "has_cards?",
+          "who": "$trigger",
+          "card_type": "move",
+          "min": 1,
+          "role": "all",
+          "fail": { "goto": "end" }
+        },
+        {
+          "id": "s02_b",
+          "action": "choose_discard",
+          "role": {
+            "actor": {
+              "player": "$trigger",
+              "action": "pick_discard",
+              "filter": "move_only"
+            },
+            "others": { "action": "wait" }
+          },
+          "on_receive": {
+            "message_type": "card_discarded",
+            "filter": { "cardId": "opportunity_028" },
+            "handle": { "action": "discard_card", "player": "$trigger", "card": "msg.card" }
+          }
+        }
+      ],
+      "role": "all"
+    }
+  ]
+}

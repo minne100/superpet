@@ -1,0 +1,41 @@
+{
+  "cardId": "event_012",
+  "type": "event",
+  "description": "所有玩家选择一张招式卡放回牌堆（无则忽略）",
+  "steps": [
+    {
+      "id": "return_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "check_{p}",
+          "action": "has_cards?",
+          "who": "{p}",
+          "card_type": "move",
+          "min": 1,
+          "role": "all",
+          "fail": { "goto": "next_$p" }
+        },
+        {
+          "id": "pick_{p}",
+          "role": {
+            "target": {
+              "player": "{p}",
+              "action": "pick_and_return",
+              "filter": "move_only",
+              "deck": "move"
+            },
+            "others": { "action": "wait" }
+          },
+          "on_receive": {
+            "message_type": "card_returned",
+            "filter": { "sender": "{p}", "cardId": "event_012" },
+            "handle": { "action": "return_to_deck", "player": "{p}", "card": "msg.card", "deck": "move" }
+          }
+        }
+      ]
+    }
+  ]
+}

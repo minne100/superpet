@@ -1,0 +1,14 @@
+{
+  "cardId": "opportunity_025",
+  "type": "opportunity",
+  "description": "下一轮前进时骰子点数减半（向下取整）",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "debuff",
+      "player": "$trigger",
+      "effect": "dice_half",
+      "role": "all"
+    }
+  ]
+}

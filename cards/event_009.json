@@ -1,0 +1,43 @@
+{
+  "cardId": "event_009",
+  "type": "event",
+  "description": "投骰子最大的玩家攻击力+10（永久）",
+  "steps": [
+    {
+      "id": "dice_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "roll_{p}",
+          "role": {
+            "target": { "player": "{p}", "action": "roll_dice" },
+            "others": { "action": "wait_dice", "from": "{p}" }
+          },
+          "on_receive": {
+            "message_type": "dice_result",
+            "filter": { "sender": "{p}" },
+            "handle": { "action": "store", "as": "dice_{p}", "value": "msg.value" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "calc_max",
+      "action": "calc",
+      "expression": "find_max(dice_A, dice_B, dice_C, dice_D)",
+      "store": { "max": "$max_player" },
+      "role": "all",
+      "tie": { "goto": "dice_loop" }
+    },
+    {
+      "id": "apply",
+      "action": "perm_buff",
+      "player": "$max_player",
+      "stat": "attack",
+      "value": 10,
+      "role": "all"
+    }
+  ]
+}

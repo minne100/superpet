@@ -1,0 +1,42 @@
+{
+  "cardId": "event_002",
+  "type": "event",
+  "description": "投骰子最大的玩家下一轮可投两次骰子",
+  "steps": [
+    {
+      "id": "dice_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "roll_{p}",
+          "role": {
+            "target": { "player": "{p}", "action": "roll_dice" },
+            "others": { "action": "wait_dice", "from": "{p}" }
+          },
+          "on_receive": {
+            "message_type": "dice_result",
+            "filter": { "sender": "{p}" },
+            "handle": { "action": "store", "as": "dice_{p}", "value": "msg.value" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "calc_max",
+      "action": "calc",
+      "expression": "find_max(dice_A, dice_B, dice_C, dice_D)",
+      "store": { "max": "$max_player" },
+      "role": "all",
+      "tie": { "goto": "dice_loop" }
+    },
+    {
+      "id": "apply",
+      "action": "debuff",
+      "player": "$max_player",
+      "effect": "double_roll",
+      "role": "all"
+    }
+  ]
+}

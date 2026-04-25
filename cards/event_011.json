@@ -1,0 +1,44 @@
+{
+  "cardId": "event_011",
+  "type": "event",
+  "description": "投骰子最小的玩家攻击力-10（不足11则降为1）",
+  "steps": [
+    {
+      "id": "dice_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "roll_{p}",
+          "role": {
+            "target": { "player": "{p}", "action": "roll_dice" },
+            "others": { "action": "wait_dice", "from": "{p}" }
+          },
+          "on_receive": {
+            "message_type": "dice_result",
+            "filter": { "sender": "{p}" },
+            "handle": { "action": "store", "as": "dice_{p}", "value": "msg.value" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "calc_min",
+      "action": "calc",
+      "expression": "find_min(dice_A, dice_B, dice_C, dice_D)",
+      "store": { "min": "$min_player" },
+      "role": "all",
+      "tie": { "goto": "dice_loop" }
+    },
+    {
+      "id": "apply",
+      "action": "perm_buff",
+      "player": "$min_player",
+      "stat": "attack",
+      "value": -10,
+      "floor": 1,
+      "role": "all"
+    }
+  ]
+}

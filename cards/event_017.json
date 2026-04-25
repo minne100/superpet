@@ -1,0 +1,31 @@
+{
+  "cardId": "event_017",
+  "type": "event",
+  "description": "从上手玩家处获得n金币（n=你的骰子数，不足则得全部）",
+  "steps": [
+    {
+      "id": "roll_trig",
+      "action": "roll_dice",
+      "by": "$trigger",
+      "store_as": "$n",
+      "role": {
+        "target": { "player": "$trigger", "action": "roll_dice" },
+        "others": { "action": "wait_dice", "from": "$trigger" }
+      },
+      "on_receive": {
+        "message_type": "dice_result",
+        "filter": { "sender": "$trigger" },
+        "handle": { "action": "store", "as": "$n", "value": "msg.value" }
+      }
+    },
+    {
+      "id": "transfer",
+      "action": "transfer_gold",
+      "from": "$prev_player_of($trigger)",
+      "to": "$trigger",
+      "value": "$n",
+      "ceil_on_source": true,
+      "role": "all"
+    }
+  ]
+}

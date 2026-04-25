@@ -1,0 +1,14 @@
+{
+  "cardId": "opportunity_001",
+  "type": "opportunity",
+  "description": "抽一张招式卡（牌堆空则忽略）",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "draw_card",
+      "deck": "move",
+      "target": "$trigger",
+      "role": "all"
+    }
+  ]
+}

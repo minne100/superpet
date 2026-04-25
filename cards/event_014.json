@@ -1,0 +1,22 @@
+{
+  "cardId": "event_014",
+  "type": "event",
+  "description": "所有玩家下一轮骰子点数翻倍",
+  "steps": [
+    {
+      "id": "debuff_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "debuff_{p}",
+          "action": "debuff",
+          "player": "{p}",
+          "effect": "dice_x2",
+          "role": "all"
+        }
+      ]
+    }
+  ]
+}

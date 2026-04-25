@@ -1,0 +1,6 @@
+{
+  "cardId": "move_008",
+  "type": "move",
+  "description": "前方横向两格",
+  "range": [ [-1,0,1], [0,-1,1] ]
+}

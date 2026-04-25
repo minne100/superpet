@@ -1,0 +1,29 @@
+{
+  "cardId": "opportunity_005",
+  "type": "opportunity",
+  "description": "再投一次骰子并前进",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "roll_dice",
+      "by": "$trigger",
+      "store_as": "$n",
+      "role": {
+        "target": { "player": "$trigger", "action": "roll_dice" },
+        "others": { "action": "wait_dice", "from": "$trigger" }
+      },
+      "on_receive": {
+        "message_type": "dice_result",
+        "filter": { "sender": "$trigger" },
+        "handle": { "action": "store", "as": "$n", "value": "msg.value" }
+      }
+    },
+    {
+      "id": "s02",
+      "action": "advance",
+      "player": "$trigger",
+      "steps": "$n",
+      "role": "all"
+    }
+  ]
+}

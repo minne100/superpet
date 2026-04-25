@@ -1,0 +1,14 @@
+{
+  "cardId": "opportunity_008",
+  "type": "opportunity",
+  "description": "下一轮轮空（不投骰、不抽卡）",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "debuff",
+      "player": "$trigger",
+      "effect": "skip_turn",
+      "role": "all"
+    }
+  ]
+}

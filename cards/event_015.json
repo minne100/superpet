@@ -1,0 +1,22 @@
+{
+  "cardId": "event_015",
+  "type": "event",
+  "description": "所有玩家下一轮骰子点数减半（向下取整）",
+  "steps": [
+    {
+      "id": "debuff_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "debuff_{p}",
+          "action": "debuff",
+          "player": "{p}",
+          "effect": "dice_half",
+          "role": "all"
+        }
+      ]
+    }
+  ]
+}

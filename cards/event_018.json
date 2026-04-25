@@ -1,0 +1,69 @@
+{
+  "cardId": "event_018",
+  "type": "event",
+  "description": "用你的招式卡与下手玩家交换一张内功卡（各自无对应卡则忽略）",
+  "steps": [
+    {
+      "id": "check_both",
+      "action": "has_cards?",
+      "who": "$trigger",
+      "card_type": "move",
+      "min": 1,
+      "role": "all",
+      "fail": { "goto": "end" }
+    },
+    {
+      "id": "check_p2",
+      "action": "has_cards?",
+      "who": "$next_player_of($trigger)",
+      "card_type": "neigong",
+      "min": 1,
+      "role": "all",
+      "fail": { "goto": "end" }
+    },
+    {
+      "id": "pick_trig",
+      "role": {
+        "target": {
+          "player": "$trigger",
+          "action": "pick_card",
+          "filter": "move_only"
+        },
+        "others": { "action": "wait" }
+      },
+      "on_receive": {
+        "message_type": "card_selection",
+        "filter": { "sender": "$trigger", "cardId": "event_018" },
+        "handle": { "action": "store", "as": "$card_a", "value": "msg.chosenCard" }
+      }
+    },
+    {
+      "id": "pick_p2",
+      "role": {
+        "target": {
+          "player": "$next_player_of($trigger)",
+          "action": "pick_card",
+          "filter": "neigong_only"
+        },
+        "others": { "action": "wait" }
+      },
+      "on_receive": {
+        "message_type": "card_selection",
+        "filter": { "sender": "$next_player_of($trigger)", "cardId": "event_018" },
+        "handle": { "action": "store", "as": "$card_b", "value": "msg.chosenCard" }
+      }
+    },
+    {
+      "id": "exchange",
+      "action": "transfer_card",
+      "from": "$trigger", "to": "$next_player_of($trigger)", "card": "$card_a",
+      "role": "all"
+    },
+    {
+      "id": "exchange_back",
+      "action": "transfer_card",
+      "from": "$next_player_of($trigger)", "to": "$trigger", "card": "$card_b",
+      "role": "all"
+    }
+  ]
+}

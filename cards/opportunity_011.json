@@ -1,0 +1,23 @@
+{
+  "cardId": "opportunity_011",
+  "type": "opportunity",
+  "description": "随机丢弃1张内功卡（无则忽略）",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "has_cards?",
+      "who": "",
+      "card_type": "neigong",
+      "min": 1,
+      "role": "all",
+      "fail": { "goto": "end" }
+    },
+    {
+      "id": "s02",
+      "action": "random_discard",
+      "player": "",
+      "card_type": "neigong",
+      "role": "all"
+    }
+  ]
+}

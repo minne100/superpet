@@ -1,0 +1,37 @@
+{
+  "cardId": "opportunity_016",
+  "type": "opportunity",
+  "description": "丢失n金币（n=投骰子数值），同时抽一张内功卡（牌堆空则忽略抽卡部分）",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "roll_dice",
+      "by": "$trigger",
+      "store_as": "$n",
+      "role": {
+        "target": { "player": "$trigger", "action": "roll_dice" },
+        "others": { "action": "wait_dice", "from": "$trigger" }
+      },
+      "on_receive": {
+        "message_type": "dice_result",
+        "filter": { "sender": "$trigger" },
+        "handle": { "action": "store", "as": "$n", "value": "msg.value" }
+      }
+    },
+    {
+      "id": "s02",
+      "action": "remove_gold",
+      "target": "$trigger",
+      "value": "$n",
+      "floor": 0,
+      "role": "all"
+    },
+    {
+      "id": "s03",
+      "action": "draw_card",
+      "deck": "neigong",
+      "target": "$trigger",
+      "role": "all"
+    }
+  ]
+}

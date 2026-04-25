@@ -1,0 +1,30 @@
+{
+  "cardId": "opportunity_020",
+  "type": "opportunity",
+  "description": "随机丢弃一张招式卡，抽一张内功卡（各自独立判断是否可行）",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "has_cards?",
+      "who": "$trigger",
+      "card_type": "move",
+      "min": 1,
+      "role": "all",
+      "fail": { "goto": "s02" }
+    },
+    {
+      "id": "s01_a",
+      "action": "random_discard",
+      "player": "$trigger",
+      "card_type": "move",
+      "role": "all"
+    },
+    {
+      "id": "s02",
+      "action": "draw_card",
+      "deck": "neigong",
+      "target": "$trigger",
+      "role": "all"
+    }
+  ]
+}

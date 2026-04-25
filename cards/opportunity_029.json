@@ -1,0 +1,38 @@
+{
+  "cardId": "opportunity_029",
+  "type": "opportunity",
+  "description": "投骰子大于3则防御力+5（永久）",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "roll_dice",
+      "by": "$trigger",
+      "store_as": "$n",
+      "role": {
+        "target": { "player": "$trigger", "action": "roll_dice" },
+        "others": { "action": "wait_dice", "from": "$trigger" }
+      },
+      "on_receive": {
+        "message_type": "dice_result",
+        "filter": { "sender": "$trigger" },
+        "handle": { "action": "store", "as": "$n", "value": "msg.value" }
+      }
+    },
+    {
+      "id": "s02",
+      "action": "if",
+      "condition": "$n > 3",
+      "do": [
+        {
+          "id": "s02_a",
+          "action": "perm_buff",
+          "player": "$trigger",
+          "stat": "defense",
+          "value": 5,
+          "role": "all"
+        }
+      ],
+      "role": "all"
+    }
+  ]
+}

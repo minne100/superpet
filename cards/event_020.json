@@ -1,0 +1,66 @@
+{
+  "cardId": "event_020",
+  "type": "event",
+  "description": "用n金币换取下手玩家的一张招式卡（n=你的骰子数，对方无则跳过）",
+  "steps": [
+    {
+      "id": "roll_trig",
+      "action": "roll_dice",
+      "by": "$trigger",
+      "store_as": "$n",
+      "role": {
+        "target": { "player": "$trigger", "action": "roll_dice" },
+        "others": { "action": "wait_dice", "from": "$trigger" }
+      },
+      "on_receive": {
+        "message_type": "dice_result",
+        "filter": { "sender": "$trigger" },
+        "handle": { "action": "store", "as": "$n", "value": "msg.value" }
+      }
+    },
+    {
+      "id": "check_source",
+      "action": "has_cards?",
+      "who": "$next_player_of($trigger)",
+      "card_type": "move",
+      "min": 1,
+      "role": "all",
+      "fail": { "goto": "end" }
+    },
+    {
+      "id": "pay_gold",
+      "action": "transfer_gold",
+      "from": "$trigger",
+      "to": "$next_player_of($trigger)",
+      "value": "$n",
+      "ceil_on_source": true,
+      "role": "all"
+    },
+    {
+      "id": "pick_source",
+      "role": {
+        "target": {
+          "player": "$next_player_of($trigger)",
+          "action": "reveal_and_pick",
+          "source": "$trigger",
+          "filter": "move_only",
+          "reason": "selling"
+        },
+        "others": { "action": "wait" }
+      },
+      "on_receive": {
+        "message_type": "card_selection",
+        "filter": { "sender": "$next_player_of($trigger)", "cardId": "event_020" },
+        "handle": { "action": "store", "as": "$chosen", "value": "msg.chosenCard" }
+      }
+    },
+    {
+      "id": "transfer",
+      "action": "transfer_card",
+      "from": "$trigger",
+      "to": "$next_player_of($trigger)",
+      "card": "$chosen",
+      "role": "all"
+    }
+  ]
+}

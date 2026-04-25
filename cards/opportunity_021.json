@@ -1,0 +1,30 @@
+{
+  "cardId": "opportunity_021",
+  "type": "opportunity",
+  "description": "随机丢弃一张内功卡，抽一张招式卡",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "has_cards?",
+      "who": "$trigger",
+      "card_type": "neigong",
+      "min": 1,
+      "role": "all",
+      "fail": { "goto": "s02" }
+    },
+    {
+      "id": "s01_a",
+      "action": "random_discard",
+      "player": "$trigger",
+      "card_type": "neigong",
+      "role": "all"
+    },
+    {
+      "id": "s02",
+      "action": "draw_card",
+      "deck": "move",
+      "target": "$trigger",
+      "role": "all"
+    }
+  ]
+}

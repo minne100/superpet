@@ -1,0 +1,14 @@
+{
+  "cardId": "opportunity_024",
+  "type": "opportunity",
+  "description": "下一轮前进时骰子点数翻倍",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "debuff",
+      "player": "$trigger",
+      "effect": "dice_x2",
+      "role": "all"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "cardId": "event_028",
+  "type": "event",
+  "description": "所有玩家原地修炼一次",
+  "steps": [
+    {
+      "id": "cultivate_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "cultivate_{p}",
+          "action": "immediate_cultivate",
+          "player": "{p}",
+          "role": "all"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "cardId": "event_030",
+  "type": "event",
+  "description": "金币少于下手玩家的玩家获得5金币",
+  "steps": [
+    {
+      "id": "loop_check",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "compare_{p}",
+          "action": "if",
+          "condition": "gold_of({p}) < gold_of($next_player_of({p}))",
+          "do": [
+            {
+              "id": "give_{p}",
+              "action": "add_gold",
+              "target": "{p}",
+              "value": 5,
+              "role": "all"
+            }
+          ],
+          "role": "all"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "cardId": "opportunity_014",
+  "type": "opportunity",
+  "description": "下一次修炼无效",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "debuff",
+      "player": "$trigger",
+      "effect": "cultivation_skip",
+      "role": "all"
+    }
+  ]
+}

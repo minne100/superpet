@@ -1,0 +1,43 @@
+{
+  "cardId": "event_007",
+  "type": "event",
+  "description": "所有玩家各丢失n金币，n=各自投骰子数值（不足扣为0）",
+  "steps": [
+    {
+      "id": "dice_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "roll_{p}",
+          "role": {
+            "target": { "player": "{p}", "action": "roll_dice" },
+            "others": { "action": "wait_dice", "from": "{p}" }
+          },
+          "on_receive": {
+            "message_type": "dice_result",
+            "filter": { "sender": "{p}" },
+            "handle": { "action": "store", "as": "dice_{p}", "value": "msg.value" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "lose_loop",
+      "action": "loop",
+      "who": "$all",
+      "as": "p",
+      "do": [
+        {
+          "id": "lose_{p}",
+          "action": "remove_gold",
+          "target": "{p}",
+          "value": "dice_{p}",
+          "floor": 0,
+          "role": "all"
+        }
+      ]
+    }
+  ]
+}

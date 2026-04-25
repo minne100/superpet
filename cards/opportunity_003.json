@@ -1,0 +1,29 @@
+{
+  "cardId": "opportunity_003",
+  "type": "opportunity",
+  "description": "获得n金币，n=投骰子数值",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "roll_dice",
+      "by": "$trigger",
+      "store_as": "$n",
+      "role": {
+        "target": { "player": "$trigger", "action": "roll_dice" },
+        "others": { "action": "wait_dice", "from": "$trigger" }
+      },
+      "on_receive": {
+        "message_type": "dice_result",
+        "filter": { "sender": "$trigger" },
+        "handle": { "action": "store", "as": "$n", "value": "msg.value" }
+      }
+    },
+    {
+      "id": "s02",
+      "action": "add_gold",
+      "target": "$trigger",
+      "value": "$n",
+      "role": "all"
+    }
+  ]
+}

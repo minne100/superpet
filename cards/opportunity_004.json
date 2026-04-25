@@ -1,0 +1,30 @@
+{
+  "cardId": "opportunity_004",
+  "type": "opportunity",
+  "description": "丢失n金币（不足则扣为0），n=投骰子数值",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "roll_dice",
+      "by": "$trigger",
+      "store_as": "$n",
+      "role": {
+        "target": { "player": "$trigger", "action": "roll_dice" },
+        "others": { "action": "wait_dice", "from": "$trigger" }
+      },
+      "on_receive": {
+        "message_type": "dice_result",
+        "filter": { "sender": "$trigger" },
+        "handle": { "action": "store", "as": "$n", "value": "msg.value" }
+      }
+    },
+    {
+      "id": "s02",
+      "action": "remove_gold",
+      "target": "$trigger",
+      "value": "$n",
+      "floor": 0,
+      "role": "all"
+    }
+  ]
+}

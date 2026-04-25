@@ -1,0 +1,6 @@
+{
+  "cardId": "move_006",
+  "type": "move",
+  "description": "右后一格",
+  "range": [ [1,0,-1] ]
+}

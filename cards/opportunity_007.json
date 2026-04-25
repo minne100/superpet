@@ -1,0 +1,33 @@
+{
+  "cardId": "opportunity_007",
+  "type": "opportunity",
+  "description": "选择丢弃1张内功卡（无则忽略）",
+  "steps": [
+    {
+      "id": "s01",
+      "action": "has_cards?",
+      "who": "",
+      "card_type": "neigong",
+      "min": 1,
+      "role": "all",
+      "fail": { "goto": "end" }
+    },
+    {
+      "id": "s02",
+      "action": "choose_discard",
+      "role": {
+        "actor": {
+          "player": "",
+          "action": "pick_discard",
+          "filter": "neigong_only"
+        },
+        "others": { "action": "wait" }
+      },
+      "on_receive": {
+        "message_type": "card_discarded",
+        "filter": { "cardId": "opportunity_007" },
+        "handle": { "action": "discard_card", "player": "", "card": "msg.card" }
+      }
+    }
+  ]
+}
