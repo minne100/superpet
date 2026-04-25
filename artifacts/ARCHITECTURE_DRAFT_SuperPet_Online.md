@@ -188,7 +188,7 @@ game-engine/
 │   └── config.js            # 开局配置（模式/天赋）
 │
 ├── track/
-│   ├── board.js             # 45格田字格棋盘定义 + 格子类型（TODO: 重构中）
+│   ├── board.js             # 45格田字格棋盘定义 + 格子类型（路口含掉头）
 │   ├── movement.js          # 跑圈移动逻辑（步数→新位置→触发检查）
 │   └── card-effects/        # 卡牌效果引擎（JSON驱动）
 │       └── index.js         # 加载 cards/*.json 到引擎

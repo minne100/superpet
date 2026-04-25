@@ -237,10 +237,12 @@ class GameEngine {
     const choices = action.data?.choices ?? []
     const oldPos = player.position
 
-    // 田字格前进：返回 { pos, passedJunctions }
-    const { pos: newPos, passedJunctions } = this.board.advance(
-      player.position, steps, choices
+    // 田字格前进：返回 { pos, prevPos, passedJunctions }
+    // player.prevPosition 记录上一步来路，首次前进为 null
+    const { pos: newPos, prevPos: newPrevPos, passedJunctions } = this.board.advance(
+      player.position, steps, player.prevPosition ?? null, choices
     )
+    player.prevPosition = newPrevPos
     player.position = newPos
 
     // 触发终点格的格子效果

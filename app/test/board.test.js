@@ -127,77 +127,118 @@ describe('Board isBattleCell', () => {
 })
 
 describe('Board 前进逻辑 getNextCells', () => {
-  it('[0,0]路口有2个前进方向', () => {
+  it('[0,0]路口有2个方向（含掉头）', () => {
+    const board = new Board()
+    // 从[1,0]来到[0,0]路口，可选[0,1]或掉头[1,0]
+    const nexts = board.getNextCells([0, 0], [1, 0])
+    assert.strictEqual(nexts.length, 2)
+  })
+
+  it('[0,0]路口无来路时也有2个方向', () => {
     const board = new Board()
     const nexts = board.getNextCells([0, 0])
     assert.strictEqual(nexts.length, 2)
   })
 
-  it('[0,1]普通格只有1个前进方向', () => {
+  it('[0,1]普通格有来路时只有1个前进方向（不可掉头）', () => {
     const board = new Board()
-    const nexts = board.getNextCells([0, 1])
+    // 从[0,0]来到[0,1]，只能继续向[0,2]
+    const nexts = board.getNextCells([0, 1], [0, 0])
     assert.strictEqual(nexts.length, 1)
     assert.deepStrictEqual(nexts[0], [0, 2])
   })
 
-  it('[0,4]比武格（纵轴入口）有2个前进方向', () => {
+  it('[0,1]普通格无来路时返回两个连接', () => {
     const board = new Board()
-    const nexts = board.getNextCells([0, 4])
+    // 无来路时返回全部连接（[0,0]和[0,2]）
+    const nexts = board.getNextCells([0, 1])
     assert.strictEqual(nexts.length, 2)
   })
 
-  it('[4,4]中心路口有4个前进方向', () => {
+  it('[0,4]路口（纵轴入口）：从左来时有3个方向含掉头', () => {
     const board = new Board()
-    const nexts = board.getNextCells([4, 4])
+    // 从[0,3]来到[0,4]，可选右[0,5]、下[1,4]、掉头[0,3]
+    const nexts = board.getNextCells([0, 4], [0, 3])
+    assert.strictEqual(nexts.length, 3)
+    const keys = nexts.map(n => `${n[0]},${n[1]}`)
+    assert.ok(keys.includes('0,3'), '应含掉头方向[0,3]')
+    assert.ok(keys.includes('0,5'), '应含右方向[0,5]')
+    assert.ok(keys.includes('1,4'), '应含纵轴方向[1,4]')
+  })
+
+  it('[4,4]中心路口有4个方向（任何来路都可掉头）', () => {
+    const board = new Board()
+    // 从[4,3]来，可选左[4,3]掉头、右[4,5]、上[3,4]、下[5,4]
+    const nexts = board.getNextCells([4, 4], [4, 3])
     assert.strictEqual(nexts.length, 4)
   })
 
-  it('上边顺时针：[0,1]→[0,2]→[0,3]', () => {
+  it('路口掉头：[0,0]来自[0,1]可选回到[0,1]', () => {
     const board = new Board()
-    assert.deepStrictEqual(board.getNextCells([0, 1])[0], [0, 2])
-    assert.deepStrictEqual(board.getNextCells([0, 2])[0], [0, 3])
-    assert.deepStrictEqual(board.getNextCells([0, 3])[0], [0, 4])
+    // 从[0,1]来到[0,0]路口，可掉头回[0,1]
+    const nexts = board.getNextCells([0, 0], [0, 1])
+    const keys = nexts.map(n => `${n[0]},${n[1]}`)
+    assert.ok(keys.includes('0,1'), '路口应允许掉头回来路')
   })
 })
 
 describe('Board advance（多步前进）', () => {
-  it('从[0,1]前进2步应到[0,3]', () => {
+  it('从[0,1]前进2步应到[0,3]（有来路排除掉头）', () => {
     const board = new Board()
-    const result = board.advance([0, 1], 2)
+    // 从[0,0]来到[0,1]，继续前进2步：[0,1]→[0,2]→[0,3]
+    const result = board.advance([0, 1], 2, [0, 0])
     assert.deepStrictEqual(result.pos, [0, 3])
     assert.strictEqual(result.passedJunctions.length, 0)
   })
 
   it('从[0,3]前进1步应到比武格[0,4]', () => {
     const board = new Board()
-    const result = board.advance([0, 3], 1)
+    const result = board.advance([0, 3], 1, [0, 2])
     assert.deepStrictEqual(result.pos, [0, 4])
   })
 
-  it('路口[0,0]前进1步，选择索引0应到[0,1]', () => {
+  it('路口[0,0]前进1步，选择索引0应到第一个选项', () => {
     const board = new Board()
-    const result = board.advance([0, 0], 1, [0])
+    // 无来路，choices=[0]
+    const result = board.advance([0, 0], 1, null, [0])
+    assert.strictEqual(result.passedJunctions.length, 1)
+    // 应到达[0,0]的第一个邻居
+    assert.ok(result.pos !== null)
+  })
+
+  it('路口[0,0]掉头：从[0,1]来可选掉头回[0,1]', () => {
+    const board = new Board()
+    // 从[0,1]来到[0,0]，掉头=选[0,1]方向
+    // [0,0]的neighbors是[[0,1],[1,0]]，从[0,1]来时，[0,1]排在某个索引
+    const nexts = board.getNextCells([0, 0], [0, 1])
+    const turnBackIdx = nexts.findIndex(n => n[0] === 0 && n[1] === 1)
+    assert.ok(turnBackIdx >= 0, '掉头方向应在选项中')
+    const result = board.advance([0, 0], 1, [0, 1], [turnBackIdx])
     assert.deepStrictEqual(result.pos, [0, 1])
-    assert.strictEqual(result.passedJunctions.length, 1)
   })
 
-  it('路口[0,0]前进1步，选择索引1应到[1,0]', () => {
+  it('前进时经过的路口应被记录，并含options', () => {
     const board = new Board()
-    const result = board.advance([0, 0], 1, [1])
-    assert.deepStrictEqual(result.pos, [1, 0])
+    // 从[0,2]来，走3步经过路口[0,4]，选择继续向右[0,5]
+    // [0,2]→[0,3]→[0,4](路口，索引选[0,5])→[0,5]
+    const result = board.advance([0, 3], 2, [0, 2], [0])
+    assert.strictEqual(result.passedJunctions.length, 1)
+    assert.deepStrictEqual(result.passedJunctions[0].pos, [0, 4])
+    assert.ok(Array.isArray(result.passedJunctions[0].options))
+    assert.ok(result.passedJunctions[0].options.length >= 2)
   })
 
-  it('前进时经过的路口应被记录', () => {
+  it('advance返回prevPos供下次调用使用', () => {
     const board = new Board()
-    // 从[0,3]走3步：[0,3]→[0,4](路口)→[0,5]→[0,6]，选择在(0,4)处走外圈方向
-    const result = board.advance([0, 3], 3, [0])
-    assert.strictEqual(result.passedJunctions.length, 1)
-    assert.deepStrictEqual(result.passedJunctions[0], [0, 4])
+    const result = board.advance([0, 1], 2, [0, 0])
+    // 走了2步，prevPos应是倒数第二格[0,2]
+    assert.deepStrictEqual(result.prevPos, [0, 2])
+    assert.deepStrictEqual(result.pos, [0, 3])
   })
 
   it('从[4,3]前进1步到中心路口[4,4]', () => {
     const board = new Board()
-    const result = board.advance([4, 3], 1)
+    const result = board.advance([4, 3], 1, [4, 2])
     assert.deepStrictEqual(result.pos, [4, 4])
   })
 })
