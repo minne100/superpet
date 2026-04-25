@@ -49,7 +49,7 @@ class GameEngine {
     /** @type {Player[]} 玩家列表 */
     this.players = []
 
-    /** @type {Board} 棋盘 */
+    /** @type {Board} 棋盘（45格田字格） */
     this.board = new Board()
 
     /** @type {TurnManager} 回合管理器 */
@@ -223,22 +223,37 @@ class GameEngine {
    * @private
    * @param {Action} action
    * @returns {Object}
-   * @description 处理前进
+   * @description 处理前进（田字格版本）
+   *
+   * action.data:
+   * - steps: number — 骰子点数
+   * - choices: number[] — 路口选择序列（每个路口选择哪个方向，索引从0开始）
+   *   UI层在玩家遇到路口时暂停并收集选择，然后把完整choices数组一起发过来。
+   *   模拟器自动随机生成choices。
    */
   #handleAdvance (action) {
     const player = this.#getPlayer(action.playerId)
     const steps = action.data?.steps ?? 1
+    const choices = action.data?.choices ?? []
     const oldPos = player.position
-    const newPos = this.board.advance(player.position, steps)
-    player.position = newPos
 
-    // 跑圈基本收入：投骰子数值=获得的金币
-    player.addGold(steps)
+    // 田字格前进：返回 { pos, passedJunctions }
+    const { pos: newPos, passedJunctions } = this.board.advance(
+      player.position, steps, choices
+    )
+    player.position = newPos
 
     // 触发终点格的格子效果
     const cellEvents = this.#triggerCellEffect(player, oldPos, newPos)
 
-    return { type: 'ADVANCE', steps, oldPos, newPos, cellEvents, goldGain: steps }
+    return {
+      type: 'ADVANCE',
+      steps,
+      oldPos,
+      newPos,
+      passedJunctions,
+      cellEvents
+    }
   }
 
   /**
@@ -722,12 +737,12 @@ class GameEngine {
   }
 
   #resolveSimpleBattle (triggerPlayer) {
-    // 找到最近的对手（最短距离）
+    // 找到最近的对手（曼哈顿距离）
     const opponents = this.players
       .filter(p => p.id !== triggerPlayer.id)
       .sort((a, b) => {
-        const dA = Math.abs(this.board.getDistance(triggerPlayer.position, a.position))
-        const dB = Math.abs(this.board.getDistance(triggerPlayer.position, b.position))
+        const dA = this.board.getDistance(triggerPlayer.position, a.position)
+        const dB = this.board.getDistance(triggerPlayer.position, b.position)
         return dA - dB
       })
 

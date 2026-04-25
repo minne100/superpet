@@ -30,8 +30,11 @@ class Player {
     this.attack = 1
     /** @type {number} 基础防御力（初始1，跑圈修炼累加） */
     this.defense = 1
-    /** @type {number} 棋盘格子索引（0-31，初始0） */
-    this.position = 0
+    /**
+     * @type {number[]} 棋盘坐标 [row, col]（田字格，初始null，由开局选择决定）
+     * 规则书 §3.1：开始时玩家选择任意一个空的休整格作为出发点
+     */
+    this.position = null
 
     // === 比武属性 ===
     /** @type {boolean} 是否在比武中 */
