@@ -15,7 +15,7 @@ describe('Player 初始化', () => {
     assert.strictEqual(p.gold, 5)
     assert.strictEqual(p.attack, 1)
     assert.strictEqual(p.defense, 1)
-    assert.strictEqual(p.position, 0)
+    assert.strictEqual(p.position, null)  // 田字格：初始为null，开局时选择休整格后赋值
     assert.strictEqual(p.alive, true)
     assert.strictEqual(p.skipNextTurn, false)
     assert.strictEqual(p.inCombat, false)

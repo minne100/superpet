@@ -364,11 +364,72 @@ class Board {
    * @param {number[]} a — 位置A [row, col]
    * @param {number[]} b — 位置B [row, col]
    * @returns {number} — 曼哈顿距离（模拟器用于判断相对远近）
-   * @description 返回两个格子之间的曼哈顿距离。
-   * 注意：这不是路径步数，只是粗略的空间距离，供模拟器用于目标选择。
    */
   getDistance (a, b) {
     return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1])
+  }
+
+  /**
+   * @method scoreDirection
+   * @param {number[]} fromPos — 当前路口位置
+   * @param {number[]} nextPos — 路口的某个出发方向（邻格）
+   * @param {number} budget — 步数预算（骰子点数）
+   * @param {Object} weights — 各格子类型的价值权重
+   * @returns {number} — 该方向在 budget 步内能获得的总价值
+   * @description BFS遍历：从 fromPos 沿 nextPos 方向出发，
+   * 在 budget 步内所有可达格子的价值总和。
+   * 路口允许转向，但不会重复计算同一格子。
+   * 供 PlayerAgent._decideJunction() 对每个方向评分，选最高分。
+   */
+  scoreDirection (fromPos, nextPos, budget, weights = Board.DEFAULT_WEIGHTS) {
+    // BFS：queue 存 { pos, prevPos, stepsLeft }
+    const queue = [{ pos: nextPos, prevPos: fromPos, stepsLeft: budget - 1 }]
+    const visited = new Set([this.key(fromPos), this.key(nextPos)])
+    let totalScore = weights[this.getType(nextPos)] ?? 0
+
+    while (queue.length > 0) {
+      const { pos, prevPos, stepsLeft } = queue.shift()
+      if (stepsLeft <= 0) continue
+
+      const nexts = this.getNextCells(pos, prevPos)
+      for (const nxt of nexts) {
+        const k = this.key(nxt)
+        if (visited.has(k)) continue
+        visited.add(k)
+        totalScore += weights[this.getType(nxt)] ?? 0
+        queue.push({ pos: nxt, prevPos: pos, stepsLeft: stepsLeft - 1 })
+      }
+    }
+
+    return totalScore
+  }
+
+  /**
+   * @method bestDirection
+   * @param {number[]} junctionPos — 路口坐标
+   * @param {number[]|null} prevPos — 来路（用于普通格排除掉头，路口忽略）
+   * @param {number} budget — 骰子点数（步数预算）
+   * @param {Object} [weights] — 格子价值权重（可按玩家状态动态调整）
+   * @returns {number} — 最优方向在 options 数组中的索引
+   * @description 对路口的每个方向评分，返回最高分方向的索引。
+   * 供 PlayerAgent 在路口决策时调用。
+   */
+  bestDirection (junctionPos, prevPos, budget, weights = Board.DEFAULT_WEIGHTS) {
+    const options = this.getNextCells(junctionPos, prevPos)
+    if (options.length <= 1) return 0
+
+    let bestIdx = 0
+    let bestScore = -Infinity
+
+    for (let i = 0; i < options.length; i++) {
+      const score = this.scoreDirection(junctionPos, options[i], budget, weights)
+      if (score > bestScore) {
+        bestScore = score
+        bestIdx = i
+      }
+    }
+
+    return bestIdx
   }
 
   /**
@@ -419,6 +480,27 @@ class Board {
       }))
     }
   }
+}
+
+/**
+ * 格子价值默认权重。
+ * 体现人类玩家的直觉优先级：
+ * - move(招式)：最高价值，没有招式只能打自己所在位置，非常被动
+ * - cultivate(修炼)：次高，直接提升属性
+ * - neigong(内功)：修炼的加强版，用于修炼时叠加
+ * - opportunity(机遇)：随机收益，有正有负，中性偏正
+ * - rest(休整)：稳定金币收入，价值较低但安全
+ * - event(事件)：影响全体，风险较高，权重低
+ * - battle(比武)：被迫触发，除非主动备战否则绕开
+ */
+Board.DEFAULT_WEIGHTS = {
+  move:        10,
+  cultivate:   6,
+  neigong:     5,
+  opportunity: 3,
+  rest:        2,
+  event:       1,
+  battle:      0
 }
 
 /**

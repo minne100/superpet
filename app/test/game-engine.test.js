@@ -66,13 +66,17 @@ describe('GameEngine applyAction', () => {
     const engine = new GameEngine({ seed: 42 })
     engine.init()
     const player = engine.getPlayer('A')
-    assert.strictEqual(player.position, 0)
+    // 田字格：先设置起始位置（休整格[0,0]），再前进
+    player.position = [0, 0]
+    player.prevPosition = null
     engine.applyAction({
       type: 'ADVANCE',
       playerId: 'A',
-      data: { steps: 5 }
+      data: { steps: 1, choices: [0] }  // 路口[0,0]选第0个方向
     })
-    assert.strictEqual(player.position, 5)
+    // 从[0,0]路口走1步，选择索引0 → 到达[0,1]
+    assert.ok(Array.isArray(player.position), '位置应为[row,col]数组')
+    assert.notDeepStrictEqual(player.position, [0, 0], '位置应已改变')
   })
 
   it('未知action类型应返回错误', () => {
