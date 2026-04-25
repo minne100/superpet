@@ -6,7 +6,7 @@
     {
       "id": "s01",
       "action": "has_cards?",
-      "who": "",
+      "who": "$trigger",
       "card_type": "neigong",
       "min": 1,
       "role": "all",
@@ -15,7 +15,7 @@
     {
       "id": "s02",
       "action": "random_discard",
-      "player": "",
+      "player": "$trigger",
       "card_type": "neigong",
       "role": "all"
     }
