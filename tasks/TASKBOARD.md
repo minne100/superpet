@@ -43,7 +43,7 @@ Phase 4: 打磨 ⚪
 |---|---|---|---|---|---|
 | T-001 | — | 市场调研 & 竞品分析 | `TASK-ANALYSIS-BRIEF.md` | ✅ **完成** | 小分 |
 | T-002 | — | PRD编写 | `PRD_SuperPet_Online.md` v1.3 | ✅ **完成** | PM→老板拍板 |
-| T-003 | — | 架构文档编写（含本地化策略） | `ARCHITECTURE_DRAFT_SuperPet_Online.md` v2.1 | ✅ **完成** | 阿架 |
+| T-003 | — | 架构文档编写（含本地化策略） | `ARCHITECTURE_DRAFT_SuperPet_Online.md` v2.1（PHP信令，45格田字格） | ✅ **完成** | 阿架 |
 | T-004 | — | 团队定义 & BMad集成 | `TEAM_DEFINITION.md` + `BMAD_INTEGRATION_PLAN.md` | ✅ **完成** | 爪子 |
 | T-005 | — | 图像生成API能力验证 | `product_box_cover.png` | ✅ **完成** | 概念设计Agent |
 | T-006 | — | 卡牌引擎设计（JSON+role/on_receive+Effect系统） | `card_engine_design_event3.md` | ✅ **完成** | 架构Agent |
@@ -80,7 +80,7 @@ Phase 4: 打磨 ⚪
 | F-16 | F-16 | 开局配置（标准/杀戮局/天赋/投骰排序/再投） | P0 | ⚪ 待启动 | Developer Agent | 2天 | F-12 |
 | F-17 | F-17 | 按顺序选宠物（点击后移动到面前） | P0 | ⚪ 待启动 | Developer Agent | 2天 | F-12, F-22 |
 | F-18 | F-18 | WebRTC P2P 连接（4节点Mesh） | P0 | ⚪ 待启动 | Developer Agent | 3天 | F-19 |
-| F-19 | F-19 | Rust 信令服务器（房间管理+ICE交换） | P0 | ⚪ 待启动 | Developer Agent | 2天 | — |
+| F-19 | F-19 | PHP 信令服务器（房间管理+ICE交换，infinityfree 免费托管） | P0 | ⚪ 待启动 | Developer Agent | 2天 | — |
 | F-20 | F-20 | 基础状态同步框架 | P0 | ⚪ 待启动 | Developer Agent | 2天 | F-18 |
 | F-21 | F-21 | 3D建模：4只宠物棋子（猫/狗/兔/鹦鹉，带底座） | P0 | ⚪ 待启动 | 概念设计Agent | 2天 | — |
 | F-22 | F-22 | 3D建模：桌面场景（棋盘+对战盘+卡牌+玻璃骰盅+计分器） | P0 | ⚪ 待启动 | 概念设计Agent | 2天 | — |
