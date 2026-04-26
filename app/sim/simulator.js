@@ -380,7 +380,9 @@ export class Simulator {
           break
         case 'opportunity_executed':
           descs.push({ desc: `机遇卡 [${ev.cardId}] - ${ev.description || ''} 已执行` })
-          // 添加详细执行流程
+          if (ev.cardDiceValue !== null && ev.cardDiceValue !== undefined) {
+            descs.push({ desc: `  🎲 卡牌内投骰 → ${ev.cardDiceValue} 点` })
+          }
           if (ev.result && ev.result.effects && ev.result.effects.length > 0) {
             for (const effect of ev.result.effects) {
               descs.push({ desc: `  - ${effect.desc || effect.type}` })
@@ -389,7 +391,9 @@ export class Simulator {
           break
         case 'event_executed':
           descs.push({ desc: `事件卡 [${ev.cardId}] - ${ev.description || ''} 已执行` })
-          // 添加详细执行流程
+          if (ev.cardDiceValue !== null && ev.cardDiceValue !== undefined) {
+            descs.push({ desc: `  🎲 卡牌内投骰 → ${ev.cardDiceValue} 点` })
+          }
           if (ev.result && ev.result.effects && ev.result.effects.length > 0) {
             for (const effect of ev.result.effects) {
               descs.push({ desc: `  - ${effect.desc || effect.type}` })

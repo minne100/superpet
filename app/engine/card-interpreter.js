@@ -56,6 +56,9 @@ class CardInterpreter {
   interpret (cardJson, context) {
     this.card = cardJson
     this.context = { ...context }
+    if (this.context.triggerPlayerId) {
+      this.context.trigger = this.context.triggerPlayerId
+    }
     this.currentStepIndex = -1
     this.loopIndex = 0
     this.loopIterator = null
@@ -137,7 +140,8 @@ class CardInterpreter {
         if (this.context.diceResult && this.context.diceResult.value !== undefined) {
           const diceValue = this.context.diceResult.value
           if (step.store_as) {
-            this.context[step.store_as] = diceValue
+            const varName = step.store_as.startsWith('$') ? step.store_as.slice(1) : step.store_as
+            this.context[varName] = diceValue
           }
           return this.#completeResult()
         }
@@ -226,20 +230,36 @@ class CardInterpreter {
    * @private
    * @param {Object} step — step定义
    * @returns {Object} — 解析后的step副本
-   * @description 解析step中的变量引用（如 $n → context.n）
+   * @description 解析step中的变量引用（如 $n → context.n，$next_player_of → engine.getNextPlayer()）
    */
-  #resolveStepVariables (step) {
+#resolveStepVariables (step) {
     if (!step) return step
     const resolved = { ...step }
     for (const key of Object.keys(resolved)) {
       const val = resolved[key]
-      if (typeof val === 'string' && val.startsWith('$')) {
-        const varName = val.slice(1)
-        // 优先全名（如 "n" → "n"），再短名
-        if (this.context[val] !== undefined) {
-          resolved[key] = this.context[val]
-        } else if (this.context[varName] !== undefined) {
-          resolved[key] = this.context[varName]
+      if (typeof val !== 'string') continue
+      if (val.startsWith('$')) {
+        const fnMatch = val.match(/^\$(\w+)\((.*)\)$/)
+        if (fnMatch) {
+          const [, fnName, arg] = fnMatch
+          const engine = this.#getEngine()
+          if (engine) {
+            if (fnName === 'next_player_of') {
+              let pid = arg
+              if (arg.startsWith('$')) {
+                const argVarName = arg.slice(1)
+                pid = this.context[argVarName] ?? this.context[arg] ?? arg
+              }
+              resolved[key] = engine.getNextPlayer(pid)?.id || pid
+            }
+          }
+        } else {
+          const varName = val.slice(1)
+          if (this.context[val] !== undefined) {
+            resolved[key] = this.context[val]
+          } else if (this.context[varName] !== undefined) {
+            resolved[key] = this.context[varName]
+          }
         }
       }
     }
@@ -316,13 +336,13 @@ class CardInterpreter {
         break
       }
 
-      case 'transfer_gold': {
+case 'transfer_gold': {
         const fromPid = step.from || this.context.triggerPlayerId
         const toPid = step.to || (loopPid || this.context.triggerPlayerId)
-        const amount = step.value || step.amount || 0
         const fromPlayer = engine.getPlayer(fromPid)
         const toPlayer = engine.getPlayer(toPid)
         if (fromPlayer && toPlayer) {
+          const amount = step.value || step.amount || 0
           const actual = fromPlayer.removeGold(amount)
           toPlayer.addGold(actual)
           effects.push({ type: 'transfer_gold', desc: `${fromPlayer.name || fromPid} 向 ${toPlayer.name || toPid} 转移 ${actual} 金币` })
@@ -689,7 +709,8 @@ class CardInterpreter {
       // 从当前 step 获取 store_as 变量名，将 diceResult.value 存入
       const currentStep = this.card.steps[this.currentStepIndex]
       if (currentStep && currentStep.store_as) {
-        this.context[currentStep.store_as] = inputs.diceResult.value
+        const varName = currentStep.store_as.startsWith('$') ? currentStep.store_as.slice(1) : currentStep.store_as
+        this.context[varName] = inputs.diceResult.value
       }
     }
 

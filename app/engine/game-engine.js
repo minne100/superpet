@@ -553,10 +553,15 @@ class GameEngine {
           })
 
           // 如果需要等待（投骰等），自动完成交互后继续
+          let cardDiceValue = null
+          const allEffects = []
+          if (result.effects) allEffects.push(...result.effects)
           while (result.waitFor) {
             if (result.waitFor === 'roll_dice') {
               const rollResult = this.applyAction({ type: 'ROLL_DICE', playerId: player.id })
+              cardDiceValue = rollResult.value
               result = this.cardInterpreter.resume({ diceResult: { value: rollResult.value } })
+              if (result.effects) allEffects.push(...result.effects)
             } else {
               break
             }
@@ -564,11 +569,12 @@ class GameEngine {
 
           // 执行后入弃牌堆
           this.discardPiles.opportunity.push(card)
-          events.push({ 
-            type: 'opportunity_executed', 
-            cardId: card.cardId, 
+          events.push({
+            type: 'opportunity_executed',
+            cardId: card.cardId,
             description: card.description || '',
-            result 
+            result: { ...result, effects: allEffects },
+            cardDiceValue
           })
         }
         break
@@ -587,10 +593,15 @@ class GameEngine {
             engine: this
           })
 
+          let cardDiceValue = null
+          const allEffects = []
+          if (result.effects) allEffects.push(...result.effects)
           while (result.waitFor) {
             if (result.waitFor === 'roll_dice') {
               const rollResult = this.applyAction({ type: 'ROLL_DICE', playerId: player.id })
+              cardDiceValue = rollResult.value
               result = this.cardInterpreter.resume({ diceResult: { value: rollResult.value } })
+              if (result.effects) allEffects.push(...result.effects)
             } else {
               break
             }
@@ -598,11 +609,12 @@ class GameEngine {
 
           // 执行后入弃牌堆
           this.discardPiles.event.push(card)
-          events.push({ 
-            type: 'event_executed', 
-            cardId: card.cardId, 
+          events.push({
+            type: 'event_executed',
+            cardId: card.cardId,
             description: card.description || '',
-            result 
+            result: { ...result, effects: allEffects },
+            cardDiceValue
           })
         }
         break
@@ -718,8 +730,20 @@ class GameEngine {
    * @returns {Player|undefined}
    * @description 获取指定玩家
    */
-  getPlayer (playerId) {
+getPlayer (playerId) {
     return this.players.find(p => p.id === playerId)
+  }
+
+  /**
+   * @method getNextPlayer
+   * @param {string} playerId
+   * @returns {Player|undefined}
+   * @description 获取指定玩家的下一个玩家（下家）
+   */
+  getNextPlayer (playerId) {
+    const idx = this.players.findIndex(p => p.id === playerId)
+    if (idx < 0) return undefined
+    return this.players[(idx + 1) % this.players.length]
   }
 
   /**
