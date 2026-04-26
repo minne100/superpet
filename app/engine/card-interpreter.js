@@ -133,11 +133,9 @@ class CardInterpreter {
     switch (effectiveAction) {
       // ---- 玩家输入类（需要等待） ----
       case 'roll_dice': {
-        // 检查是否有模拟骰子结果
-        const playerId = loopPid || step.player || this.context.triggerPlayerId
-        if (this.context.diceResults && this.context.diceResults[playerId]) {
-          // 使用模拟结果
-          const diceValue = this.context.diceResults[playerId]
+        // 检查是否有外部传入的骰子结果
+        if (this.context.diceResult && this.context.diceResult.value !== undefined) {
+          const diceValue = this.context.diceResult.value
           if (step.store_as) {
             this.context[step.store_as] = diceValue
           }
@@ -288,7 +286,17 @@ class CardInterpreter {
       }
 
       case 'remove_gold': {
-        const amount = step.value || 0
+        let amount = step.value || 0
+        if (typeof amount === 'string' && amount.startsWith('$')) {
+          const varName = amount.slice(1)
+          // 变量名可能带$前缀，如$n
+          const fullVarName = amount
+          if (this.context[fullVarName] !== undefined) {
+            amount = this.context[fullVarName]
+          } else if (this.context[varName] !== undefined) {
+            amount = this.context[varName]
+          }
+        }
         const actual = player.removeGold(amount)
         effects.push({ type: 'remove_gold', desc: `${player.name || pid} 失去 ${actual} 金币` })
         break
@@ -648,6 +656,32 @@ class CardInterpreter {
       return this.#completeResult()
     }
     return this.#processSteps(this.card.steps.slice(stepIndex))
+  }
+
+  /**
+   * @method resume
+   * @param {Object} inputs — 外部输入 { diceResult: { value }, ... }
+   * @returns {ExecutionResult}
+   * @description 接收外部输入后继续执行卡牌（如投骰后的结果）
+   */
+  resume (inputs) {
+    if (!this.card || !this.card.steps) {
+      return this.#completeResult()
+    }
+
+    // 将输入合并到 context
+    if (inputs.diceResult) {
+      this.context.diceResult = inputs.diceResult
+      // 从当前 step 获取 store_as 变量名，将 diceResult.value 存入
+      const currentStep = this.card.steps[this.currentStepIndex]
+      if (currentStep && currentStep.store_as) {
+        this.context[currentStep.store_as] = inputs.diceResult.value
+      }
+    }
+
+    // 从 currentStepIndex + 1 继续执行（跳过刚完成的 waitFor step）
+    const nextStepIndex = this.currentStepIndex + 1
+    return this.#processSteps(this.card.steps.slice(nextStepIndex))
   }
 
   /**

@@ -546,10 +546,22 @@ class GameEngine {
           events.push({ type: 'reshuffle', deckType: 'opportunity', seed: reshuffleSeed })
         }
         if (card) {
-          const result = this.cardInterpreter.interpret(card, {
+          // 处理需要等待的卡牌（如 roll_dice）
+          let result = this.cardInterpreter.interpret(card, {
             triggerPlayerId: player.id,
             engine: this
           })
+
+          // 如果需要等待（投骰等），自动完成交互后继续
+          while (result.waitFor) {
+            if (result.waitFor === 'roll_dice') {
+              const rollResult = this.applyAction({ type: 'ROLL_DICE', playerId: player.id })
+              result = this.cardInterpreter.resume({ diceResult: { value: rollResult.value } })
+            } else {
+              break
+            }
+          }
+
           // 执行后入弃牌堆
           this.discardPiles.opportunity.push(card)
           events.push({ 
@@ -569,10 +581,21 @@ class GameEngine {
           events.push({ type: 'reshuffle', deckType: 'event', seed: reshuffleSeed })
         }
         if (card) {
-          const result = this.cardInterpreter.interpret(card, {
+          // 处理需要等待的卡牌
+          let result = this.cardInterpreter.interpret(card, {
             triggerPlayerId: player.id,
             engine: this
           })
+
+          while (result.waitFor) {
+            if (result.waitFor === 'roll_dice') {
+              const rollResult = this.applyAction({ type: 'ROLL_DICE', playerId: player.id })
+              result = this.cardInterpreter.resume({ diceResult: { value: rollResult.value } })
+            } else {
+              break
+            }
+          }
+
           // 执行后入弃牌堆
           this.discardPiles.event.push(card)
           events.push({ 
