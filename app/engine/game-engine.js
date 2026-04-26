@@ -664,7 +664,8 @@ class GameEngine {
     const result = this.turnManager.nextTurn()
     for (const [pid, effects] of this.effectManager.registry.entries()) {
       for (let i = effects.length - 1; i >= 0; i--) {
-        if (effects[i].name !== 'skip_turn' && effects[i].rounds > 0) {
+        // skip_turn 和 next_turn_choose_step 在 NEXT_TURN 时不递减，由各自回合开始时检查处理
+        if (effects[i].name !== 'skip_turn' && effects[i].name !== 'next_turn_choose_step' && effects[i].rounds > 0) {
           effects[i].rounds--
         }
         if (effects[i].rounds === 0) {

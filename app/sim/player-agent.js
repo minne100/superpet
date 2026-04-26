@@ -81,15 +81,64 @@ export class PlayerAgent {
    * @description 执行一个完整回合：投骰 → 处理路口 → 处理格子效果。
    */
   async _takeTurn () {
-    // Step 1: 投骰
-    const diceResult = await this._rollDice()
-    const steps = diceResult.value
+    const player = this.engine.getPlayer(this.id)
+
+    let steps
+    const hasChooseStep = this.engine.effectManager.get(this.id, 'next_turn_choose_step')
+    
+    if (hasChooseStep) {
+      this.engine.effectManager.clear(this.id, 'next_turn_choose_step')
+      steps = await this._decideOptimalSteps()
+    } else {
+      const diceResult = await this._rollDice()
+      steps = diceResult.value
+    }
 
     // Step 2: 处理前进（可能经过路口需要选择方向）
     await this._advance(steps)
 
     // Step 3: 处理格子效果中需要玩家选择的情况
     await this._handleCellChoices()
+  }
+
+  /**
+   * @method _decideOptimalSteps
+   * @private
+   * @returns {Promise<number>}
+   * @description 不投骰，根据权重计算最优步数（1-6）
+   */
+  async _decideOptimalSteps () {
+    const player = this.engine.getPlayer(this.id)
+    const board = this.engine.board
+    const weights = { ...Board.DEFAULT_WEIGHTS }
+
+    const moveCardCount = player.hand.move?.length ?? 0
+    if (moveCardCount < 2) {
+      weights.move = 20 + (2 - moveCardCount) * 10
+    }
+    if (player.attack < 10 || player.defense < 10) {
+      weights.cultivate = 8
+      weights.neigong = 7
+    }
+    if (player.gold > 20) {
+      weights.rest = 1
+    }
+
+    let bestSteps = 1
+    let bestScore = -Infinity
+
+    for (let s = 1; s <= 6; s++) {
+      const result = board.advance(player.position, s, player.prevPosition, [])
+      const cellType = board.getType(result.pos)
+      const score = weights[cellType] ?? 0
+
+      if (score > bestScore) {
+        bestScore = score
+        bestSteps = s
+      }
+    }
+
+    return bestSteps
   }
 
   /**
@@ -132,7 +181,7 @@ export class PlayerAgent {
     // 为每个路口做一次决策
     const choices = []
     for (const junction of preview.passedJunctions) {
-      const choice = await this._decideJunction(junction.pos, junction.options)
+      const choice = await this._decideJunction(junction.pos, junction.options, junction.stepsLeft)
       choices.push(choice)
     }
 
@@ -169,23 +218,24 @@ export class PlayerAgent {
     }, this.id)
   }
 
-  /**
+/**
    * @method _decideJunction
    * @private
    * @param {number[]} junctionPos — 路口坐标
    * @param {number[][]} options — 可选方向列表（来自 board.getNextCells，含来路）
+   * @param {number} stepsLeft — 剩余步数预算
    * @returns {Promise<number>} — 选择的方向索引
    * @description AI决策：在路口选择前进方向。
    *
    * 策略（模拟人类直觉）：
-   * 根据当前玩家状态动态调整权重，对每个方向做 BFS 评分，选最高分。
+   * 根据玩家状态动态调整权重，对每个方向做 BFS 评分，选最高分。
    *
    * 权重调整规则：
    * - 招式卡不足（<2张）→ 大幅提升 move 权重（没有招式就只能打自己位置）
-   * - 攻防偏低（<10）→ 提升 cultivate / neigong 权重（需要修炼提升属性）
-   * - 金币充裕（>20）→ 稍降 rest 权重（不缺金币就不用专门踩休整）
+   * - 属性偏低（攻击<10 或 防御<10）→ 提升 cultivate/neigong 权重
+   * - 金币充裕（>20）→ 降低 rest 权重
    */
-  async _decideJunction (junctionPos, options) {
+  async _decideJunction (junctionPos, options, stepsLeft = 3) {
     if (options.length <= 1) return 0
 
     const player = this.engine.getPlayer(this.id)
@@ -211,12 +261,8 @@ export class PlayerAgent {
       weights.rest = 1
     }
 
-    // 获取最近一次投骰的步数作为预算（从引擎历史中找，找不到用3作为默认预算）
-    const lastDice = this._lastDiceValue ?? 3
-
-    // 用 board.bestDirection 对所有方向评分
-    // prevPos 是来路（junctionPos 的来路），传 null 让路口返回所有方向
-    const bestIdx = board.bestDirection(junctionPos, null, lastDice, weights)
+    // 用 board.bestDirection 对所有方向评分（路口允许掉头，所以不过滤来路）
+    const bestIdx = board.bestDirection(junctionPos, null, stepsLeft, weights)
 
     return bestIdx
   }

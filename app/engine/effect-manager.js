@@ -108,11 +108,12 @@ class EffectManager {
   /**
    * @method tickAll
    * @description 所有玩家所有效果的轮次-1，到期自动清除
+   * 注意：skip_turn效果特殊处理，不会在tickAll中减少轮次
    */
   tickAll () {
     for (const [playerId, effects] of this.registry.entries()) {
       for (let i = effects.length - 1; i >= 0; i--) {
-        if (effects[i].rounds > 0) {
+        if (effects[i].name !== 'skip_turn' && effects[i].rounds > 0) {
           effects[i].rounds--
         }
         if (effects[i].rounds === 0) {

@@ -317,7 +317,7 @@ class Board {
    * @param {number} steps — 前进步数
    * @param {number[]|null} [prevPos=null] — 上一步来自的位置（用于第一步排除来路）
    * @param {number[]} [choices=[]] — 路口选择序列（索引列表，模拟器用）
-   * @returns {{ pos: number[], prevPos: number[], passedJunctions: Array<{pos:number[], options:number[][]}>}}
+   * @returns {{ pos: number[], prevPos: number[], passedJunctions: Array<{pos:number[], options:number[][], stepsLeft:number}>}}
    * @description 从 startPos 前进 steps 步。
    *
    * - 普通格：自动前进（排除来路）
@@ -326,13 +326,14 @@ class Board {
    * 返回值：
    * - pos: 最终位置
    * - prevPos: 最后一步的来路（供下一次调用传入）
-   * - passedJunctions: 途经的路口列表，每项含 { pos, options } 供UI展示选项
+   * - passedJunctions: 途经的路口列表，每项含 { pos, options, stepsLeft } 供决策用
    */
   advance (startPos, steps, prevPos = null, choices = []) {
     let pos = [...startPos]
     let prev = prevPos ? [...prevPos] : null
     const passedJunctions = []
     let choiceUsed = 0
+    let stepsRemaining = steps
 
     for (let i = 0; i < steps; i++) {
       const nexts = this.getNextCells(pos, prev)
@@ -342,8 +343,9 @@ class Board {
       const cell = this.cellMap[this.key(pos)]
 
       if (cell && cell.isJunction) {
-        // 路口：记录供UI展示，按choices选择
-        passedJunctions.push({ pos: [...pos], options: nexts.map(n => [...n]) })
+        // 路口：记录供决策，包含剩余步数
+        stepsRemaining = steps - i
+        passedJunctions.push({ pos: [...pos], options: nexts.map(n => [...n]), stepsLeft: stepsRemaining })
         const choice = choices[choiceUsed] ?? 0
         choiceUsed++
         nextPos = nexts[Math.min(choice, nexts.length - 1)]
