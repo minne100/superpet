@@ -230,6 +230,7 @@ export class Simulator {
         if (logger) {
           logger.recordSkipTurn(currentRound, turnInRound, currentId, 'skip_turn')
         }
+        turnCount++
         engine.applyAction({ type: 'NEXT_TURN', playerId: currentId })
         continue
       }
