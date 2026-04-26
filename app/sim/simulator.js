@@ -266,8 +266,12 @@ export class Simulator {
         const moveMsg = await moveResultPromise
         const mv = moveMsg.payload
 
-        // 记录骰子（从步数反推不准确，步数就是骰子值）
-        logger.recordDice(currentId, mv.steps)
+        // 记录步数（区分投骰和自主选择）
+        if (mv.usedChooseStep) {
+          logger.recordChooseSteps(currentId, mv.steps)
+        } else {
+          logger.recordDice(currentId, mv.steps)
+        }
 
         // 记录移动，带路口选择信息
         const junctionDetails = (mv.passedJunctions || []).map((j, i) => {

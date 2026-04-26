@@ -134,6 +134,14 @@ export class GameLogger {
     })
   }
 
+  recordChooseSteps (playerId, value) {
+    this.record({
+      type: 'CHOOSE_STEPS',
+      playerId,
+      value
+    })
+  }
+
   recordMove (playerId, fromPos, toPos, cellType, steps, junctions) {
     this.record({
       type: 'MOVE',
@@ -343,6 +351,11 @@ export class GameLogger {
 
         case 'DICE': {
           lines.push(`    🎲 ${playerLabel(ev.playerId)} 投骰子 → ${ev.value} 点`)
+          break
+        }
+
+        case 'CHOOSE_STEPS': {
+          lines.push(`    🎯 ${playerLabel(ev.playerId)} 自主选择 → ${ev.value} 步`)
           break
         }
 

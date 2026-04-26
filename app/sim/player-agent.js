@@ -84,18 +84,21 @@ export class PlayerAgent {
     const player = this.engine.getPlayer(this.id)
 
     let steps
+    let usedChooseStep = false
     const hasChooseStep = this.engine.effectManager.get(this.id, 'next_turn_choose_step')
     
     if (hasChooseStep) {
       this.engine.effectManager.clear(this.id, 'next_turn_choose_step')
       steps = await this._decideOptimalSteps()
+      usedChooseStep = true
+      console.log(`[LOG] ${this.id} 自主选择 ${steps} 步`)
     } else {
       const diceResult = await this._rollDice()
       steps = diceResult.value
     }
 
     // Step 2: 处理前进（可能经过路口需要选择方向）
-    await this._advance(steps)
+    await this._advance(steps, usedChooseStep)
 
     // Step 3: 处理格子效果中需要玩家选择的情况
     await this._handleCellChoices()
@@ -165,9 +168,10 @@ export class PlayerAgent {
    * @method _advance
    * @private
    * @param {number} steps — 前进步数
+   * @param {boolean} [usedChooseStep=false] — 是否使用自由选择步数
    * @description 前进。如果途经路口，挂起等待方向选择（AI自动决策）。
    */
-  async _advance (steps) {
+  async _advance (steps, usedChooseStep = false) {
     const player = this.engine.getPlayer(this.id)
 
     // 预判本次前进会经过哪些路口（dry-run）
@@ -207,14 +211,15 @@ export class PlayerAgent {
       data: { steps, choices, cultivateStat, neigongCardId }
     })
 
-    this.bus.broadcast(MSG.MOVE_RESULT, {
+this.bus.broadcast(MSG.MOVE_RESULT, {
       playerId: this.id,
       steps,
       oldPos: result.oldPos,
       newPos: result.newPos,
       passedJunctions: result.passedJunctions,
       choices,
-      cellEvents: result.cellEvents ?? []   // 格子触发的效果列表，供 Logger 记录
+      usedChooseStep,
+      cellEvents: result.cellEvents ?? []
     }, this.id)
   }
 
