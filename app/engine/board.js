@@ -495,8 +495,8 @@ class Board {
  */
 Board.DEFAULT_WEIGHTS = {
   move:        10,
+  neigong:     8,
   cultivate:   6,
-  neigong:     5,
   opportunity: 3,
   rest:        2,
   event:       1,
