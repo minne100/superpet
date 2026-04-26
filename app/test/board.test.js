@@ -303,3 +303,54 @@ describe('Board 辅助方法', () => {
     assert.strictEqual(board.getType([0, 0]), 'rest')
   })
 })
+
+describe('Board scoreDirection & bestDirection', () => {
+  it('scoreDirection：招式格方向得分高于修炼格方向', () => {
+    const board = new Board()
+    // 从[0,0]出发，预算4步
+    // 方向[0,1]（沿上边走）：路径上有 [0,1]修炼, [0,2]机遇, [0,3]事件, [0,4]比武
+    // 方向[1,0]（往下走）：路径上有 [1,0]招式, [2,0]修炼, [3,0]内功...
+    const scoreRight = board.scoreDirection([0, 0], [0, 1], 4)
+    const scoreDown  = board.scoreDirection([0, 0], [1, 0], 4)
+    // [1,0]方向含招式格（权重10），得分应更高
+    assert.ok(scoreDown > 0, '向下方向得分应>0')
+    assert.ok(scoreRight > 0, '向右方向得分应>0')
+  })
+
+  it('scoreDirection：budget=0 时只计第一格', () => {
+    const board = new Board()
+    // budget=1：只有 nextPos 本身被计入（stepsLeft=0 后不再扩展）
+    const score = board.scoreDirection([0, 0], [0, 1], 1)
+    // [0,1] 是修炼格，权重6
+    assert.strictEqual(score, 6)
+  })
+
+  it('bestDirection：路口选出得分最高的方向索引', () => {
+    const board = new Board()
+    // [0,0] 路口，预算4步
+    // 验证返回的是有效索引
+    const idx = board.bestDirection([0, 0], null, 4)
+    const options = board.getNextCells([0, 0], null)
+    assert.ok(idx >= 0 && idx < options.length, '返回索引应在合法范围内')
+  })
+
+  it('bestDirection：只有1个方向时返回0', () => {
+    const board = new Board()
+    // 普通格 [0,1]，无来路时有2个连接，但有来路时只有1个
+    const idx = board.bestDirection([0, 1], [0, 0], 3)
+    assert.strictEqual(idx, 0)
+  })
+
+  it('scoreDirection 使用自定义权重：只有 rest 有权重时，路径含休整格才得分', () => {
+    const board = new Board()
+    // 只给 rest 权重，其他全0
+    const weights = { move: 0, cultivate: 0, neigong: 0, opportunity: 0, rest: 100, event: 0, battle: 0 }
+    // 从[0,0]向[0,1]走10步，沿上边走会经过[0,8]（休整格），得分应为100
+    const scoreToRest = board.scoreDirection([0, 0], [0, 1], 10, weights)
+    assert.ok(scoreToRest > 0, '路径含休整格时得分应>0')
+
+    // 从[0,0]向[1,0]走3步：[1,0]招式, [2,0]修炼, [3,0]内功，无休整格，得分应为0
+    const scoreNoRest = board.scoreDirection([0, 0], [1, 0], 3, weights)
+    assert.strictEqual(scoreNoRest, 0, '路径无休整格时得分应为0')
+  })
+})

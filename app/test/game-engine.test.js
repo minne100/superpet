@@ -148,3 +148,85 @@ describe('GameEngine 玩家查询', () => {
     assert.strictEqual(engine.getPlayer('Z'), undefined)
   })
 })
+
+describe('GameEngine 修炼格（新规则）', () => {
+  it('不用内功卡时：加攻或加防二选一（不同时+1/+1）', () => {
+    const engine = new GameEngine({ seed: 42 })
+    engine.init()
+    engine.rollForOrder()
+    engine.assignPets(['猫', '狗', '兔子', '鹦鹉'])
+    const starts = engine.board.getStartPositions()
+    const posMap = {}
+    engine.players.forEach((p, i) => { posMap[p.id] = starts[i] })
+    engine.assignStartPositions(posMap)
+
+    const pid = engine.turnManager.getCurrentPlayer()
+    const player = engine.getPlayer(pid)
+    // 定位到修炼格旁边（[0,1] 是修炼格）
+    player.position = [0, 0]
+    player.prevPosition = null
+    const atkBefore = player.attack
+    const defBefore = player.defense
+
+    // 选加攻
+    engine.applyAction({ type: 'ADVANCE', playerId: pid,
+      data: { steps: 1, cultivateStat: 'attack', choices: [0] } })
+
+    // 只加了攻击，防御不变
+    assert.strictEqual(player.attack, atkBefore + 1, '攻击应+1')
+    assert.strictEqual(player.defense, defBefore, '防御不变')
+  })
+
+  it('使用内功卡时：按卡牌数值加属性，替代基础+1', () => {
+    const engine = new GameEngine({ seed: 42 })
+    engine.init()
+    engine.rollForOrder()
+    engine.assignPets(['猫', '狗', '兔子', '鹦鹉'])
+    const starts = engine.board.getStartPositions()
+    const posMap = {}
+    engine.players.forEach((p, i) => { posMap[p.id] = starts[i] })
+    engine.assignStartPositions(posMap)
+
+    const pid = engine.turnManager.getCurrentPlayer()
+    const player = engine.getPlayer(pid)
+    // 给玩家一张内功卡（攻击+4）
+    const neigongCard = { cardId: 'neigong_011', type: 'neigong',
+      steps: [{ id: 's01', action: 'buff_next_cultivation', stat: 'attack', value: 4 }] }
+    player.hand.neigong.push(neigongCard)
+
+    player.position = [0, 0]
+    player.prevPosition = null
+    const atkBefore = player.attack
+    const defBefore = player.defense
+
+    engine.applyAction({ type: 'ADVANCE', playerId: pid,
+      data: { steps: 1, neigongCardId: 'neigong_011', choices: [0] } })
+
+    // 加了内功卡的数值4，不叠加基础+1
+    assert.strictEqual(player.attack, atkBefore + 4, '攻击应+4（内功卡数值）')
+    assert.strictEqual(player.defense, defBefore, '防御不变')
+    assert.strictEqual(player.hand.neigong.length, 0, '内功卡已弃置')
+  })
+})
+
+describe('GameEngine 金币（每步+1）', () => {
+  it('前进N步获得N金币', () => {
+    const engine = new GameEngine({ seed: 42 })
+    engine.init()
+    engine.rollForOrder()
+    engine.assignPets(['猫', '狗', '兔子', '鹦鹉'])
+    const starts = engine.board.getStartPositions()
+    const posMap = {}
+    engine.players.forEach((p, i) => { posMap[p.id] = starts[i] })
+    engine.assignStartPositions(posMap)
+
+    const pid = engine.turnManager.getCurrentPlayer()
+    const player = engine.getPlayer(pid)
+    const goldBefore = player.gold
+    const steps = 3
+
+    engine.applyAction({ type: 'ADVANCE', playerId: pid, data: { steps } })
+    assert.ok(player.gold >= goldBefore + steps,
+      `前进${steps}步应至少获得${steps}金币（可能还有格子效果）`)
+  })
+})

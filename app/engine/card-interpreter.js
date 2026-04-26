@@ -186,34 +186,25 @@ class CardInterpreter {
         return this.#completeResult()
 
       // ---- 需要engine实际操作的动作 ----
+      // ---- 需要engine实际操作的动作（带变量解析） ----
       case 'add_gold':
-        return this.#applyEngineAction('add_gold', step, loopPid)
       case 'remove_gold':
-        return this.#applyEngineAction('remove_gold', step, loopPid)
       case 'transfer_gold':
-        return this.#applyEngineAction('transfer_gold', step, loopPid)
       case 'transfer_card':
-        return this.#applyEngineAction('transfer_card', step, loopPid)
       case 'draw_card':
-        return this.#applyEngineAction('draw_card', step, loopPid)
       case 'discard_card':
-        return this.#applyEngineAction('discard_card', step, loopPid)
       case 'random_discard':
-        return this.#applyEngineAction('random_discard', step, loopPid)
       case 'debuff':
-        return this.#applyEngineAction('debuff', step, loopPid)
       case 'perm_buff':
-        return this.#applyEngineAction('perm_buff', step, loopPid)
       case 'buff_next_cultivation':
-        return this.#applyEngineAction('buff_next_cultivation', step, loopPid)
       case 'immediate_cultivate':
-        return this.#applyEngineAction('immediate_cultivate', step, loopPid)
       case 'advance':
-        return this.#applyEngineAction('advance', step, loopPid)
       case 'return_to_deck':
-        return this.#applyEngineAction('return_to_deck', step, loopPid)
       case 'negate_damage':
-        return this.#applyEngineAction('negate_damage', step, loopPid)
+      case 'has_cards?': {
+        const resolvedStep = this.#resolveStepVariables(step)
+        return this.#applyEngineAction(action, resolvedStep, loopPid)
+      }
 
       // ---- 控制流 ----
       case 'if':
@@ -222,14 +213,37 @@ class CardInterpreter {
         return this.#completeResult()
       case 'end':
         return this.#completeResult()
-      case 'has_cards?':
-        return this.#applyEngineAction('has_cards?', step, loopPid)
       case 'store':
         return this.#completeResult()
 
       default:
         return this.#completeResult()
     }
+  }
+
+  /**
+   * @method #resolveStepVariables
+   * @private
+   * @param {Object} step — step定义
+   * @returns {Object} — 解析后的step副本
+   * @description 解析step中的变量引用（如 $n → context.n）
+   */
+  #resolveStepVariables (step) {
+    if (!step) return step
+    const resolved = { ...step }
+    for (const key of Object.keys(resolved)) {
+      const val = resolved[key]
+      if (typeof val === 'string' && val.startsWith('$')) {
+        const varName = val.slice(1)
+        // 优先全名（如 "n" → "n"），再短名
+        if (this.context[val] !== undefined) {
+          resolved[key] = this.context[val]
+        } else if (this.context[varName] !== undefined) {
+          resolved[key] = this.context[varName]
+        }
+      }
+    }
+    return resolved
   }
 
   /**
