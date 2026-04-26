@@ -3,7 +3,7 @@
 
 # Git directory (Git ignores this by default)
 .git/
-
+graphify-out/cache/
 # Node.js
 node_modules/
 npm-debug.log*
